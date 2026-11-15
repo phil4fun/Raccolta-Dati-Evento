@@ -150,6 +150,45 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 .gps { margin: 4px 8px; border: 1px solid var(--accent); background: var(--surface); color: var(--accent); border-radius: 8px; padding: 6px 10px; min-height: 36px; font-size: 13.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .gps:disabled { opacity: .6; cursor: progress; }
 @media (max-width: 600px) { .gpsrow { grid-template-columns: 1fr; } .gps { justify-self: start; margin: 0 12px 10px; min-height: 40px; } }
+
+.row[hidden] { display: none; }
+.now { border: 1px solid var(--accent); background: var(--surface); color: var(--accent); border-radius: 8px; padding: 6px 10px; min-height: 36px; font-size: 13.5px; font-weight: 700; cursor: pointer; white-space: nowrap; margin: 4px 8px; }
+.now.ico { margin: 0 2px; padding: 4px; min-height: 36px; width: 36px; font-size: 16px; }
+.dephint { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 12px 10px; font-size: 13px; color: var(--muted); }
+.dephint[hidden] { display: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line); background: var(--surface); }
+.chips > span { font-family: var(--display); font-weight: 600; color: var(--label); margin-right: 4px; }
+.chips.alldone { display: none; }
+.chip { border: 1px dashed var(--accent); background: var(--accent-soft); color: var(--label); border-radius: 999px; padding: 6px 12px; min-height: 36px; font-weight: 700; font-size: 13.5px; cursor: pointer; }
+.chip[hidden] { display: none; }
+.evbox { display: grid; }
+.evtools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 4px 4px 0; }
+.evtools .hint { font-size: 12.5px; color: var(--muted); }
+.sec .prog { margin-left: auto; font-family: var(--body); letter-spacing: 0; text-transform: none; font-size: 12px; font-weight: 700; color: var(--muted); background: var(--band); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+.sec .prog[hidden] { display: none; }
+.sec .prog.full { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.badge { display: inline-block; margin-left: 8px; vertical-align: 1px; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #6b4a00; background: #ffe7a3; border-radius: 4px; padding: 1px 6px; }
+.hright { display: flex; align-items: center; gap: 12px; }
+.themeb { border: 1px solid color-mix(in srgb, var(--bar-ink) 40%, transparent); background: transparent; color: var(--bar-ink); border-radius: 999px; width: 36px; height: 36px; font-size: 17px; cursor: pointer; }
+.modal { position: fixed; inset: 0; background: rgba(14, 22, 32, .45); display: grid; place-items: center; z-index: 50; padding: 16px; }
+.mbox { background: var(--surface); color: var(--ink); border-radius: 12px; padding: 18px; width: min(440px, 100%); box-shadow: 0 10px 30px rgba(0,0,0,.25); display: grid; gap: 10px; }
+.mbox h3 { margin: 0; font-family: var(--display); font-size: 20px; color: var(--label); }
+.mbox p { margin: 0; }
+.mbox textarea { min-height: 180px; width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: 14px; background: var(--band); }
+.mbtns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+@media (max-width: 700px) {
+  .carro .now.ico { flex: 0 0 36px; width: 36px; margin: 0 4px 0 0; }
+  .carro > input[type=time] { flex: 1 1 0 !important; min-width: 0; padding-left: 4px; padding-right: 0; }
+  .carro > span { padding: 0 2px 0 10px !important; }
+  .carro > select, .carro > .cell { flex-basis: 100% !important; }
+}
+@media (max-width: 600px) {
+  .dephint { grid-column: 1; }
+  .gpsrow .now { justify-self: start; margin: 0 12px 10px; min-height: 40px; }
+  .hright { width: 100%; justify-content: space-between; }
+  .status { width: auto; }
+  .sheet-head .actions:last-child { justify-content: space-between; }
+}
 .arch-tools { display: flex; gap: 8px; width: 100%; padding-top: 8px; border-top: 1px dashed var(--line); }
 #bClear:disabled { opacity: .45; }
 .confirm .btn { min-height: 36px; }
@@ -209,7 +248,7 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 <div class="wrap">
   <header class="top">
     <div class="brand"><span class="tile"><img id="logo" alt="Atac Roma"></span><h1>Raccolta Dati Evento<small>Controllo di Esercizio · scheda evento</small></h1></div>
-    <div class="status" id="status"><span class="dot" id="dot"></span><span id="statusText">Collegamento all’archivio…</span></div>
+    <div class="hright"><button type="button" class="themeb" id="bTheme" aria-label="Cambia tema">◐</button><div class="status" id="status"><span class="dot" id="dot"></span><span id="statusText">Collegamento all’archivio…</span></div></div>
   </header>
 
   <main>
@@ -224,10 +263,11 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
       <div id="rows"></div>
       <div class="sheet-head">
         <div class="actions" id="exportActions">
-          <button type="button" class="btn" data-exp="pdf">Esporta PDF</button><button type="button" class="btn primary" id="bDrive">Invia a Drive</button>
+          <button type="button" class="btn" data-exp="pdf">Esporta PDF</button><button type="button" class="btn primary" id="bDrive">Invia a Drive</button><button type="button" class="btn" id="bRiep">Copia riepilogo</button>
         </div>
         <div class="actions">
           <span class="confirm" id="confirmDel">Eliminare questa scheda? <button type="button" class="btn" id="bDelYes">Sì, elimina</button><button type="button" class="btn" id="bDelNo">Annulla</button></span>
+          <button type="button" class="btn" id="bDup">Duplica</button>
           <button type="button" class="btn" id="bDel">Elimina</button>
         </div>
       </div>
@@ -353,7 +393,7 @@ function buildRows() {
   let nSez = 0;
   for (const f of FIELDS) {
     if (SEZIONI[f.k]) { const h = document.createElement("div"); h.className = "sec"; const b = document.createElement("b"); b.textContent = ++nSez; h.append(b, document.createTextNode(SEZIONI[f.k])); box.appendChild(h); }
-    const row = document.createElement("div"); row.className = "row";
+    const row = document.createElement("div"); row.className = "row"; row.id = "row_" + f.k;
     const id = "f_" + f.k;
     const lab = document.createElement("label"); lab.htmlFor = id; lab.textContent = f.l + ":";
     let el;
@@ -463,6 +503,7 @@ function addRow(f, box, c) {
     inp.dataset.k = col.k; inp.setAttribute("aria-label", (col.ph || col.pre || col.label) + " " + f.item + " " + n);
     if (i === 0) inp.classList.add("first");
     if (col.type !== "check" && !(col.type === "select" && col.altro)) row.appendChild(inp);
+    if (col.type === "time") { const nb = nowBtn(inp); nb.textContent = "⏱"; nb.classList.add("ico"); row.appendChild(nb); tpl.push("40px"); }
   }
   const x = document.createElement("button"); x.type = "button"; x.className = "x"; x.textContent = "×"; x.title = "Togli questa riga"; x.setAttribute("aria-label", "Togli " + f.item + " " + n);
   x.addEventListener("click", () => { row.remove(); if (!box.querySelector(".carro")) addRow(f, box, {}); onEdit(); });
@@ -598,6 +639,7 @@ function renderList() {
   const q = $("#q").value.trim().toLowerCase();
   const list = $("#list"); list.innerHTML = "";
   const rows = records.filter((r) => !q || (r.data + " " + itDate(r.data) + " " + FIELDS.map((f) => disp(r, f)).join(" ")).toLowerCase().includes(q));
+  rows.sort((a, b) => (typeof isOpen === "function" ? isOpen(b) - isOpen(a) : 0));
   $("#count").textContent = records.length ? "(" + records.length + ")" : "";
   if (!rows.length) {
     const li = document.createElement("li"); li.className = "empty";
@@ -608,6 +650,7 @@ function renderList() {
     const li = document.createElement("li"); li.className = "item" + (r.id === current ? " on" : ""); li.tabIndex = 0;
     li.innerHTML = '<span class="t"></span><span class="m"></span>';
     li.querySelector(".t").textContent = title(r); li.querySelector(".m").textContent = meta(r);
+    if (typeof isOpen === "function" && isOpen(r)) { const b = document.createElement("span"); b.className = "badge"; b.textContent = "in corso"; li.querySelector(".t").appendChild(b); }
     const open = async () => { if (dirty) await save(false); current = r.id; dirty = false; fillForm(r); status("Scheda aperta dall’archivio", "ok"); if (matchMedia("(max-width: 900px)").matches) $("#sheet").scrollIntoView({ block: "start" }); };
     li.addEventListener("click", open);
     li.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });
@@ -768,6 +811,7 @@ async function exportAll() {
 async function runExport(kind) {
   const rec = readForm();
   if (isBlank(rec)) { toast("La scheda è vuota: non c’è niente da esportare."); return; }
+  if (!(await checkBeforeSend(rec, "esportare"))) return;
   if (dirty) await save(false);
   const btns = document.querySelectorAll("[data-exp]"); btns.forEach((b) => (b.disabled = true));
   try { await (kind === "pdf" ? exportPDF(rec) : kind === "docx" ? exportDOCX(rec) : exportXLSX(rec)); }
@@ -775,9 +819,207 @@ async function runExport(kind) {
   finally { btns.forEach((b) => (b.disabled = false)); }
 }
 
+/* ---------- velocità di compilazione ---------- */
+const DEPOSITI = {"01":["Acilia"],"012":["Acilia"],"014":["Acilia"],"016":["Acilia"],"016F":["Acilia"],"020":["Grottarossa"],"021":["Grottarossa"],"029":["Grottarossa"],"03":["Acilia"],"04":["Acilia"],"045":["Tor Vergata"],"046":["Tor Vergata"],"047":["Tor Vergata"],"04B":["Acilia"],"05":["Acilia"],"052":["Tor Vergata"],"058":["Tor Vergata"],"058F":["Tor Vergata"],"05B":["Acilia"],"05P":["Acilia"],"06":["Acilia"],"060":["Acilia"],"062":["Acilia"],"063":["Acilia"],"065":["Acilia"],"07":["Acilia"],"070":["Acilia","Tor Pagnotta"],"071":["Tor Pagnotta"],"073":["Tor Pagnotta"],"074":["Tor Pagnotta"],"089":["Magliana"],"09":["Acilia"],"105":["Tor Sapienza"],"106":["Tor Vergata"],"107":["Tor Vergata"],"111":["Portonaccio"],"111F":["Portonaccio"],"115":["Magliana"],"118":["Tor Pagnotta"],"120F":["Portonaccio"],"128":["Magliana"],"14":["Porta Maggiore"],"150F":["Tor Sapienza"],"16":["Portonaccio","Tor Sapienza"],"160":["Grottarossa","Tor Pagnotta"],"163":["Tor Sapienza"],"168":["Grottarossa","Portonaccio"],"168D":["Grottarossa"],"170":["Tor Pagnotta"],"180F":["Grottarossa"],"188":["Grottarossa"],"19":["Porta Maggiore"],"190F":["Magliana"],"2":["Porta Maggiore"],"20":["Tor Sapienza"],"200":["Grottarossa"],"201":["Grottarossa"],"20L":["Tor Sapienza"],"211":["Portonaccio"],"211F":["Portonaccio"],"223":["Grottarossa"],"228":["Magliana"],"23":["Grottarossa","Magliana"],"230":["Grottarossa"],"246":["Magliana"],"246P":["Magliana"],"247":["Grottarossa"],"280":["Grottarossa"],"3":["Porta Maggiore"],"30":["Grottarossa","Magliana"],"301":["Grottarossa"],"303":["Grottarossa"],"309":["Tor Sapienza"],"31":["Grottarossa","Magliana","Tor Pagnotta"],"310":["Portonaccio","Tor Sapienza"],"311":["Tor Sapienza"],"313":["Tor Sapienza","Tor Vergata"],"32":["Grottarossa"],"33":["Magliana"],"334":["Grottarossa"],"334L":["Grottarossa"],"336":["Grottarossa"],"337":["Grottarossa"],"338":["Grottarossa"],"34":["Magliana"],"341":["Grottarossa","Tor Sapienza"],"344":["Grottarossa"],"350":["Tor Sapienza"],"360":["Portonaccio","Tor Pagnotta"],"38":["Portonaccio","Tor Sapienza"],"40":["Tor Sapienza"],"409":["Tor Sapienza"],"412":["Tor Sapienza"],"424":["Tor Sapienza"],"44":["Portonaccio","Tor Pagnotta"],"443":["Portonaccio"],"446":["Grottarossa"],"448":["Portonaccio"],"451":["Tor Sapienza"],"46":["Portonaccio"],"46B":["Magliana"],"49":["Grottarossa","Magliana"],"490":["Portonaccio"],"492":["Portonaccio","Tor Sapienza"],"495":["Portonaccio","Tor Sapienza"],"5":["Porta Maggiore"],"500":["Tor Vergata"],"504":["Tor Vergata"],"506":["Tor Vergata"],"507":["Tor Vergata"],"508":["Tor Sapienza"],"51":["Portonaccio"],"515":["Tor Vergata"],"52":["Grottarossa"],"520":["Tor Vergata"],"52D":["Grottarossa"],"53":["Grottarossa"],"542":["Tor Sapienza","Tor Vergata"],"544":["Tor Sapienza","Tor Vergata"],"545":["Portonaccio"],"551":["Tor Vergata"],"556":["Tor Vergata"],"557":["Tor Vergata"],"558":["Tor Vergata"],"559":["Tor Vergata"],"590":["Tor Vergata"],"60":["Grottarossa","Portonaccio","Tor Pagnotta"],"61":["Tor Sapienza"],"62":["Portonaccio"],"628":["Grottarossa","Tor Pagnotta","Tor Sapienza","Tor Vergata"],"63":["Grottarossa"],"64":["Portonaccio","Tor Sapienza"],"649":["Portonaccio"],"654":["Tor Vergata"],"66":["Tor Sapienza"],"664":["Tor Vergata"],"669":["Magliana"],"670":["Magliana"],"671":["Tor Pagnotta","Tor Vergata"],"69":["Grottarossa"],"69D":["Grottarossa"],"70":["Grottarossa"],"700":["Acilia","Tor Pagnotta"],"705":["Acilia","Magliana"],"706":["Acilia","Tor Pagnotta"],"708":["Acilia","Tor Pagnotta"],"709":["Acilia","Tor Pagnotta"],"71":["Tor Sapienza"],"712":["Acilia","Tor Pagnotta"],"713":["Magliana"],"714":["Tor Sapienza"],"715":["Tor Pagnotta"],"716":["Tor Pagnotta"],"719":["Magliana"],"719D":["Magliana"],"72":["Tor Pagnotta"],"720":["Tor Pagnotta"],"724":["Tor Pagnotta"],"73":["Tor Pagnotta"],"74":["Tor Pagnotta"],"75":["Portonaccio","Tor Sapienza"],"762":["Tor Pagnotta"],"763":["Tor Pagnotta"],"763L":["Tor Pagnotta"],"765":["Tor Pagnotta","Tor Vergata"],"766":["Magliana"],"767":["Tor Pagnotta"],"769":["Tor Pagnotta"],"77":["Tor Pagnotta"],"772":["Tor Pagnotta"],"773":["Magliana"],"774":["Magliana"],"775":["Magliana"],"779":["Tor Pagnotta"],"779F":["Tor Pagnotta"],"780":["Tor Pagnotta"],"781":["Magliana"],"786":["Magliana"],"786F":["Magliana"],"788":["Tor Pagnotta"],"791":["Acilia","Magliana"],"792":["Tor Pagnotta"],"795":["Tor Pagnotta"],"8":["Porta Maggiore"],"80":["Grottarossa"],"81":["Tor Sapienza"],"82":["Tor Sapienza"],"83":["Tor Pagnotta"],"85":["Tor Pagnotta","Tor Vergata"],"87":["Tor Pagnotta"],"870":["Magliana"],"871":["Magliana"],"88":["Portonaccio"],"881":["Magliana"],"882":["Magliana"],"89":["Grottarossa"],"90":["Grottarossa","Montesacro","Tor Pagnotta"],"904":["Magliana"],"905":["Magliana"],"91":["Magliana"],"910":["Grottarossa","Tor Sapienza"],"911":["Grottarossa"],"913":["Grottarossa"],"913L":["Grottarossa"],"916":["Magliana","Portonaccio"],"916F":["Magliana"],"92":["Grottarossa","Portonaccio"],"93":["Grottarossa"],"96":["Magliana"],"98":["Magliana"],"980":["Magliana"],"981":["Magliana"],"983":["Magliana"],"990":["Grottarossa"],"990L":["Grottarossa"],"A01":["Tor Sapienza"],"A05":["Tor Sapienza"],"A06":["Tor Sapienza"],"A07":["Tor Sapienza"],"A10":["Tor Sapienza"],"A50":["Tor Sapienza"],"A60":["Tor Sapienza"],"A70":["Tor Sapienza"],"C01":["Acilia"],"C02":["Acilia"],"C03":["Acilia"],"C10":["Acilia"],"C11":["Tor Vergata"],"C13":["Acilia"],"C2":["Portonaccio"],"C20":["Acilia"],"C3":["Portonaccio"],"C30":["Acilia"],"C4":["Acilia"],"C5":["Tor Sapienza"],"C7":["Magliana"],"C9":["Tor Vergata"],"G03":["Grottarossa"],"G04":["Grottarossa"],"G05":["Grottarossa"],"G06":["Grottarossa"],"G07":["Grottarossa"],"G40":["Grottarossa"],"G50":["Grottarossa"],"G60":["Grottarossa"],"G70":["Grottarossa"],"H":["Portonaccio","Tor Sapienza"],"N041":["Tor Sapienza"],"N070":["Acilia","Tor Pagnotta"],"N075":["Tor Sapienza"],"N11":["Tor Sapienza"],"N200":["Grottarossa"],"N201":["Grottarossa"],"N3D":["Tor Pagnotta"],"N3S":["Tor Pagnotta"],"N409":["Portonaccio"],"N5":["Tor Sapienza"],"N500":["Tor Vergata"],"N543":["Tor Sapienza"],"N66":["Grottarossa"],"N70":["Portonaccio"],"N705":["Acilia"],"N716":["Tor Pagnotta"],"N719":["Magliana"],"N8":["Magliana","Tor Sapienza"],"N90":["Grottarossa"],"N904":["Magliana"],"N92":["Grottarossa"],"NMA":["Tor Pagnotta","Tor Vergata"],"NMB":["Portonaccio","Tor Sapienza"],"NMB1":["Tor Sapienza"],"NMC":["Tor Vergata"],"NME":["Acilia","Portonaccio"]}; // linea -> depositi (fonte: romaatac.altervista.org, nov 2026; solo suggerimento)
+const INTERVENTI = ["ambulanza", "polizia_rc", "altre_forze", "vigili_fuoco", "carro_attrezzi", "ditta_lavori"];
+const CHIP = { ambulanza: "Ambulanza", polizia_rc: "Polizia RC", altre_forze: "Altre forze", vigili_fuoco: "VV.F.", carro_attrezzi: "Carro attr.", ditta_lavori: "Ditta lavori" };
+const SUGG = ["oe", "matricola", "proveniente", "luogo_evento", "altezza_fermata", "vettura"];
+const KEY = [["tipo_evento", "Tipo Evento"], ["ora_evento", "Ora Evento"], ["luogo_evento", "Luogo Evento"], ["vettura", "Vettura"], ["linea", "Linea"], ["evento", "Descrizione"]];
+const pad2 = (n) => String(n).padStart(2, "0");
+const nowHHMM = () => { const d = new Date(); return pad2(d.getHours()) + ":" + pad2(d.getMinutes()); };
+function nowBtn(input) {
+  const b = document.createElement("button"); b.type = "button"; b.className = "now"; b.textContent = "Adesso";
+  b.title = "Inserisci l’ora attuale"; b.setAttribute("aria-label", "Inserisci l’ora attuale");
+  b.addEventListener("click", () => { input.value = nowHHMM(); input.dispatchEvent(new Event("input", { bubbles: true })); onEdit(); });
+  return b;
+}
+const isOpen = (r) => !isBlank(r) && !String(r.campi.fine_evento || "").trim();
+const hasMulti = (c, f) => (c[f.store] || []).some((o) => f.cols.some((col) => o[col.k])) || (!!f.legacy && !!f.legacy(c)) || !!String(c[f.k] || "").trim();
+
+function enhance() {
+  /* "Adesso" accanto a Ora Evento e Fine Evento */
+  for (const k of ["ora_evento", "fine_evento"]) {
+    const el = $("#f_" + k), w = document.createElement("div"); w.className = "gpsrow";
+    el.replaceWith(w); w.append(el, nowBtn(el));
+  }
+  /* suggerimenti dalle schede passate */
+  for (const k of SUGG) { const dl = document.createElement("datalist"); dl.id = "dl_" + k; document.body.appendChild(dl); $("#f_" + k).setAttribute("list", dl.id); }
+  $("#f_oe").addEventListener("change", () => pairFill("oe", "matricola"));
+  $("#f_matricola").addEventListener("change", () => pairFill("matricola", "oe"));
+  /* linea -> deposito */
+  const hint = document.createElement("div"); hint.className = "dephint"; hint.id = "depHint"; hint.hidden = true;
+  $("#row_linea_orario").appendChild(hint);
+  $("#f_linea_orario").addEventListener("change", lineaDeposito);
+  $("#f_linea_orario_altro").addEventListener("change", lineaDeposito);
+  $("#f_deposito").addEventListener("change", () => { $("#f_deposito").dataset.auto = ""; });
+  /* interventi a richiesta */
+  const first = $("#row_" + INTERVENTI[0]);
+  const bar = document.createElement("div"); bar.className = "chips"; bar.id = "chips";
+  const lab = document.createElement("span"); lab.textContent = "Chi è intervenuto?"; bar.appendChild(lab);
+  for (const k of INTERVENTI) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "chip"; b.dataset.k = k; b.textContent = "+ " + CHIP[k];
+    b.addEventListener("click", () => { showInt(k, true); const r = $("#row_" + k); const i = r.querySelector("input, select"); if (i) i.focus(); r.scrollIntoView({ block: "center", behavior: "smooth" }); });
+    bar.appendChild(b);
+  }
+  first.before(bar);
+  /* bozza della descrizione */
+  const ta = $("#f_evento"), w = document.createElement("div"); w.className = "evbox";
+  const tools = document.createElement("div"); tools.className = "evtools";
+  const bz = document.createElement("button"); bz.type = "button"; bz.className = "now"; bz.textContent = "✍ Bozza dai dati inseriti";
+  bz.addEventListener("click", () => { const t = bozza(readForm()); ta.value = ta.value.trim() ? t + "\n\n" + ta.value : t; ta.focus(); ta.setSelectionRange(t.length, t.length); onEdit(); });
+  const hintv = document.createElement("span"); hintv.className = "hint"; hintv.textContent = "Per dettare usa il microfono della tastiera.";
+  tools.append(bz, hintv); ta.replaceWith(w); w.append(tools, ta);
+  /* avanzamento per sezione */
+  document.querySelectorAll(".sec").forEach((s) => { const p = document.createElement("span"); p.className = "prog"; s.appendChild(p); });
+}
+function pairFill(from, to) {
+  const v = $("#f_" + from).value.trim().toLowerCase(), dest = $("#f_" + to);
+  if (!v || dest.value.trim()) return;
+  for (const r of records) if (String(r.campi[from] || "").trim().toLowerCase() === v && r.campi[to]) { dest.value = r.campi[to]; onEdit(); return; }
+}
+function lineaDeposito() {
+  const sel = $("#f_linea_orario"), linea = (sel.value === "__altro" ? $("#f_linea_orario_altro").value : sel.value).trim().toUpperCase();
+  const dep = $("#f_deposito"), hint = $("#depHint"), list = DEPOSITI[linea] || [];
+  hint.innerHTML = ""; hint.hidden = true;
+  if (!list.length) { if (dep.dataset.auto) { dep.value = ""; dep.dataset.auto = ""; onEdit(); } return; }
+  if (list.length === 1) {
+    if (!dep.value || dep.dataset.auto) { dep.value = list[0]; dep.dataset.auto = "1"; onEdit(); }
+    return;
+  }
+  if (dep.value && !dep.dataset.auto && list.includes(dep.value)) return;
+  if (dep.dataset.auto) { dep.value = ""; dep.dataset.auto = ""; onEdit(); }
+  hint.hidden = false;
+  hint.append(document.createTextNode("Linea su più depositi: "));
+  for (const d of list) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "chip"; b.textContent = d;
+    b.addEventListener("click", () => { dep.value = d; dep.dataset.auto = ""; hint.hidden = true; onEdit(); });
+    hint.appendChild(b);
+  }
+}
+function showInt(k, on) {
+  const r = $("#row_" + k); if (!r) return;
+  r.hidden = !on; const c = document.querySelector('.chip[data-k="' + k + '"]'); if (c) c.hidden = on;
+  const bar = $("#chips"); if (bar) bar.classList.toggle("alldone", INTERVENTI.every((x) => !$("#row_" + x).hidden));
+}
+function refreshInterventi(c) { for (const f of FIELDS) if (INTERVENTI.includes(f.k)) showInt(f.k, hasMulti(c || {}, f)); }
+function updateSuggestions() {
+  for (const k of SUGG) {
+    const seen = new Map();
+    for (const r of records) { const v = String(r.campi[k] || "").trim(); if (v && !seen.has(v.toLowerCase())) seen.set(v.toLowerCase(), v); }
+    const dl = $("#dl_" + k); if (!dl) continue; dl.innerHTML = "";
+    for (const v of [...seen.values()].slice(0, 200)) { const o = document.createElement("option"); o.value = v; dl.appendChild(o); }
+  }
+}
+function updateProgress() {
+  const c = readForm().campi; let sec = null, tot = 0, ok = 0;
+  const flush = () => { if (sec) { const p = sec.querySelector(".prog"); p.textContent = tot ? ok + "/" + tot : ""; p.hidden = !tot; p.classList.toggle("full", ok === tot); } };
+  for (const f of FIELDS) {
+    if (SEZIONI[f.k]) { flush(); sec = $("#row_" + f.k).previousElementSibling; while (sec && !sec.classList.contains("sec")) sec = sec.previousElementSibling; tot = 0; ok = 0; }
+    if (INTERVENTI.includes(f.k)) continue;   // gli interventi sono facoltativi
+    tot++; if (disp({ campi: c }, f)) ok++;
+  }
+  flush();
+}
+const TIPO_FRASE = {
+  "Collisione": "rimaneva coinvolta in una collisione",
+  "Urto": "rimaneva coinvolta in un urto",
+  "Incidente terzi": "rilevava un incidente tra terzi",
+  "Incidente coinvolti": "rimaneva coinvolta in un incidente",
+  "Ingombro stradale": "rimaneva bloccata al transito a causa di un ingombro",
+  "Congestione stradale": "rimaneva rallentata a causa di congestione stradale",
+  "Malore passeggero": "segnalava il malore di un passeggero a bordo",
+  "Malore conducente": "segnalava il malore dell’operatore d’esercizio",
+  "Ripristino fermata": "segnalava il ripristino della fermata",
+  "Spostamento fermata": "segnalava lo spostamento della fermata",
+};
+function bozza(rec) {
+  const c = rec.campi, p = [];
+  let s = "Alle ore " + (c.ora_evento || "__:__");
+  if (c.luogo_evento) s += ", in " + c.luogo_evento.replace(/\s*\(GPS[^)]*\)/, "");
+  if (c.altezza_fermata) s += " (altezza fermata " + c.altezza_fermata + ")";
+  s += ", la vettura " + (c.vettura || "____");
+  if (c.linea) s += " della linea " + c.linea + (c.orario ? " orario " + c.orario : "");
+  if (c.deposito) s += " (deposito " + c.deposito + ")";
+  if (c.proveniente) s += ", proveniente da " + c.proveniente;
+  if (c.oe) s += ", condotta dall’operatore d’esercizio " + c.oe + (c.matricola ? " (matr. " + c.matricola + ")" : "");
+  s += ", " + (TIPO_FRASE[c.tipo_evento] || (c.tipo_evento ? "segnalava: " + c.tipo_evento.toLowerCase() : "…")) + ".";
+  p.push(s);
+  if (c.auto_privata) p.push("Veicolo privato coinvolto: " + c.auto_privata + (c.posizione ? ", " + c.posizione.toLowerCase() : "") + ".");
+  const inter = FIELDS.filter((f) => INTERVENTI.includes(f.k) && hasMulti(c, f)).map((f) => (f.k === "ditta_lavori" ? "ditta " : "") + disp(rec, f).replace(/\n/g, "; "));
+  if (inter.length) p.push("Sul posto intervenivano: " + inter.join("; ") + ".");
+  if (c.deviazioni_sn === "SI") p.push("Veniva attivata una deviazione" + (c.linee_interessate ? " per le linee " + c.linee_interessate : "") + ".");
+  if (c.fine_evento) p.push("L’evento terminava alle ore " + c.fine_evento + (c.corse_perse ? ", con " + c.corse_perse + " corse perse" : "") + ".");
+  return p.join(" ");
+}
+function riepilogo(rec) {
+  const c = rec.campi, L = [];
+  L.push("EVENTO " + itDate(rec.data) + (c.ora_evento ? " ore " + c.ora_evento : "") + (c.tipo_evento ? " – " + c.tipo_evento.toUpperCase() : ""));
+  for (const f of FIELDS) {
+    if (["tipo_evento", "ora_evento", "evento"].includes(f.k)) continue;
+    const v = disp(rec, f); if (v) L.push(f.l + ": " + v.replace(/\n+/g, " / "));
+  }
+  if (c.evento) L.push("", c.evento);
+  return L.join("\n");
+}
+async function copyRiepilogo() {
+  const rec = readForm();
+  if (isBlank(rec)) { toast("La scheda è vuota."); return; }
+  const text = riepilogo(rec);
+  if (matchMedia("(pointer: coarse)").matches && navigator.share) {
+    try { await navigator.share({ text }); return; } catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  try { await navigator.clipboard.writeText(text); toast("Riepilogo copiato: incollalo dove ti serve."); }
+  catch { ask("Riepilogo", "Copia il testo qui sotto.", [["Chiudi", false]], text); }
+}
+async function duplicate() {
+  const rec = readForm();
+  if (isBlank(rec)) { toast("La scheda è vuota: non c’è niente da duplicare."); return; }
+  if (dirty) await save(false);
+  for (const k of ["vettura", "linea", "orario", "deposito", "proveniente", "oe", "matricola", "danni_atac"]) rec.campi[k] = "";
+  current = null; fillForm(rec); dirty = true; await save(false);
+  toast("Copia creata: inserisci vettura, linea e operatore.");
+  $("#f_vettura").focus();
+}
+/* finestra di conferma dentro la pagina (niente pop-up del browser) */
+function ask(title, msg, buttons, text) {
+  return new Promise((ok) => {
+    const bg = document.createElement("div"); bg.className = "modal"; bg.setAttribute("role", "dialog"); bg.setAttribute("aria-modal", "true");
+    const box = document.createElement("div"); box.className = "mbox";
+    const h = document.createElement("h3"); h.textContent = title; const p = document.createElement("p"); p.textContent = msg; box.append(h, p);
+    if (text != null) { const ta = document.createElement("textarea"); ta.value = text; ta.readOnly = true; box.appendChild(ta); setTimeout(() => ta.select(), 50); }
+    const row = document.createElement("div"); row.className = "mbtns";
+    for (const [lab, val, primary] of buttons) { const b = document.createElement("button"); b.type = "button"; b.className = "btn" + (primary ? " primary" : ""); b.textContent = lab; b.addEventListener("click", () => { bg.remove(); ok(val); }); row.appendChild(b); }
+    box.appendChild(row); bg.appendChild(box); document.body.appendChild(bg); row.lastChild.focus();
+  });
+}
+/* controllo dei dati chiave prima di esportare o inviare */
+function missing(rec) { return KEY.filter(([k]) => !String(rec.campi[k] || "").trim()).map(([, l]) => l); }
+async function checkBeforeSend(rec, what) {
+  const m = missing(rec); if (!m.length) return true;
+  return ask("Mancano alcuni dati", "Nella scheda manca" + (m.length > 1 ? "no: " : ": ") + m.join(", ") + ". Vuoi " + what + " lo stesso?", [["Torna a compilare", false], [what.charAt(0).toUpperCase() + what.slice(1) + " lo stesso", true, true]]);
+}
+/* tema chiaro / scuro / automatico */
+function applyTheme(t) {
+  if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  const b = $("#bTheme"); if (b) { b.textContent = t === "dark" ? "☾" : t === "light" ? "☀" : "◐"; b.title = "Tema: " + (t === "dark" ? "scuro" : t === "light" ? "chiaro" : "automatico"); }
+}
+let theme = "auto"; try { theme = localStorage.getItem("rde_theme") || "auto"; } catch {}
+applyTheme(theme);
+$("#bTheme").addEventListener("click", () => { theme = theme === "auto" ? "light" : theme === "light" ? "dark" : "auto"; try { localStorage.setItem("rde_theme", theme); } catch {} applyTheme(theme); });
+
+/* aggancio alle funzioni esistenti */
+const _fillForm = fillForm;
+fillForm = function (rec) { _fillForm(rec); const d = $("#f_deposito"); if (d) d.dataset.auto = ""; if ($("#depHint")) $("#depHint").hidden = true; refreshInterventi(rec ? rec.campi : {}); updateProgress(); };
+const _onEdit = onEdit;
+onEdit = function () { _onEdit(); clearTimeout(onEdit.t); onEdit.t = setTimeout(updateProgress, 250); };
+const _renderList = renderList;
+renderList = function () { _renderList(); updateSuggestions(); };
+
 /* ---------- start ---------- */
 $("#logo").src = LOGO_PNG;
-buildRows(); fillForm(null);
+buildRows(); enhance(); fillForm(null);
+$("#bDup").addEventListener("click", duplicate);
+$("#bRiep").addEventListener("click", copyRiepilogo);
 $("#bSave").addEventListener("click", () => save(true));
 $("#bNew").addEventListener("click", newSheet);
 $("#mSave").addEventListener("click", () => save(true));
@@ -897,6 +1139,20 @@ const browserDownloads = {
     }
     localStorage.setItem("rde_drive_folder", id); return id;
   }
+  const MESI = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+  async function monthFolder(root, iso) {
+    const [y, m] = String(iso || todayISO()).split("-"), name = y + "-" + m + " " + MESI[(+m || 1) - 1];
+    let cache = {}; try { cache = JSON.parse(localStorage.getItem("rde_drive_sub") || "{}"); } catch {}
+    if (cache[root + "|" + name]) return cache[root + "|" + name];
+    const q = encodeURIComponent("name='" + name + "' and '" + root + "' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false");
+    const j = await (await gapi("https://www.googleapis.com/drive/v3/files?fields=files(id)&q=" + q)).json();
+    let id = j.files && j.files[0] && j.files[0].id;
+    if (!id) {
+      const r = await gapi("https://www.googleapis.com/drive/v3/files?fields=id", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, parents: [root], mimeType: "application/vnd.google-apps.folder" }) });
+      if (!r.ok) throw new Error("folder"); id = (await r.json()).id;
+    }
+    cache[root + "|" + name] = id; localStorage.setItem("rde_drive_sub", JSON.stringify(cache)); return id;
+  }
   async function uploadRecord(r, folder) {
     const blob = await makePDF(r), name = fileBase(r) + ".pdf", map = driveMap(), prev = map[r.id];
     let res;
@@ -904,7 +1160,7 @@ const browserDownloads = {
       res = await gapi("https://www.googleapis.com/upload/drive/v3/files/" + prev.fileId + "?uploadType=multipart&fields=id", { method: "PATCH", body: multipart({ name }, blob) });
       if (res.status === 404) res = null;
     }
-    if (!res) res = await gapi("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", { method: "POST", body: multipart({ name, parents: [folder], mimeType: "application/pdf" }, blob) });
+    if (!res) { const sub = await monthFolder(folder, r.data); res = await gapi("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", { method: "POST", body: multipart({ name, parents: [sub], mimeType: "application/pdf" }, blob) }); }
     if (!res.ok) throw new Error("upload " + res.status);
     const j = await res.json(); const m = driveMap(); m[r.id] = { fileId: j.id, modificato: r.modificato }; setDriveMap(m);
   }
@@ -922,7 +1178,7 @@ const browserDownloads = {
       btn.textContent = "Accesso a Google…"; await getToken();
       const folder = await folderId();
       for (const r of list) { btn.textContent = "Invio " + (done + 1) + "/" + list.length + "…"; await uploadRecord(r, folder); done++; }
-      toast(list.length === 1 ? "PDF salvato su Drive, cartella “" + DRIVE_FOLDER + "”." : done + " PDF salvati su Drive, cartella “" + DRIVE_FOLDER + "”.");
+      toast(list.length === 1 ? "PDF salvato su Drive, cartella “" + DRIVE_FOLDER + "”, sottocartella del mese." : done + " PDF salvati su Drive, cartella “" + DRIVE_FOLDER + "”, divisi per mese.");
     } catch (e) {
       console.error(e);
       toast(String(e.message).includes("popup") || String(e.message).includes("access_denied") ? "Accesso a Google annullato." : (done ? done + " inviati, poi l’invio si è interrotto: riprova." : "Invio a Drive non riuscito: riprova."));
@@ -935,6 +1191,7 @@ const browserDownloads = {
   $("#bDrive").addEventListener("click", async () => {
     const rec = readForm();
     if (isBlank(rec)) { toast("La scheda è vuota: non c’è niente da inviare."); return; }
+    if (!(await checkBeforeSend(rec, "inviare"))) return;
     if (dirty || !current) await save(false);
     const r = records.find((x) => x.id === current);
     if (!r) { toast("Salva la scheda prima di inviarla."); return; }
@@ -945,6 +1202,8 @@ const browserDownloads = {
     if (dirty) await save(false);
     const todo = records.filter((r) => !onDrive(r) && !isBlank(r));
     if (!todo.length) { toast(records.length ? "Tutte le schede sono già su Drive." : "Nessuna scheda da inviare."); return; }
+    const inc = todo.filter((r) => missing(r).length).length;
+    if (inc && !(await ask("Schede incomplete", (inc === 1 ? "Una scheda ha" : inc + " schede hanno") + " dati mancanti (ora, luogo, vettura, linea o descrizione). Inviare lo stesso?", [["Annulla", false], ["Invia lo stesso", true, true]]))) return;
     sendToDrive(todo, $("#bDriveAll"));
   });
   $("#bClear").addEventListener("click", () => {
