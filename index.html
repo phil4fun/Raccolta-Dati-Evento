@@ -161,6 +161,10 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 .chips.alldone { display: none; }
 .chip { border: 1px dashed var(--accent); background: var(--accent-soft); color: var(--label); border-radius: 999px; padding: 6px 12px; min-height: 36px; font-weight: 700; font-size: 13.5px; cursor: pointer; }
 .chip[hidden] { display: none; }
+.dephint .chip { min-height: 34px; padding: 5px 11px; }
+.dephint .chip.other { background: var(--surface); border-style: dotted; color: var(--muted); }
+.dephint .chip.ok { background: var(--accent); color: var(--accent-ink); border-style: solid; }
+.dephint > span { width: 100%; }
 .evbox { display: grid; }
 .evtools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 4px 4px 0; }
 .evtools .hint { font-size: 12.5px; color: var(--muted); }
@@ -877,24 +881,39 @@ function pairFill(from, to) {
   if (!v || dest.value.trim()) return;
   for (const r of records) if (String(r.campi[from] || "").trim().toLowerCase() === v && r.campi[to]) { dest.value = r.campi[to]; onEdit(); return; }
 }
+/* correzioni del deposito fatte da te: hanno la precedenza sull'elenco */
+const depFix = () => { try { return JSON.parse(localStorage.getItem("rde_dep_fix") || "{}"); } catch { return {}; } };
+function saveDepFix(linea, d) { try { const m = depFix(); m[linea] = d; localStorage.setItem("rde_dep_fix", JSON.stringify(m)); } catch {} }
+const lineaCorrente = () => { const sel = $("#f_linea_orario"); return (sel.value === "__altro" ? $("#f_linea_orario_altro").value : sel.value).trim().toUpperCase(); };
 function lineaDeposito() {
-  const sel = $("#f_linea_orario"), linea = (sel.value === "__altro" ? $("#f_linea_orario_altro").value : sel.value).trim().toUpperCase();
-  const dep = $("#f_deposito"), hint = $("#depHint"), list = DEPOSITI[linea] || [];
+  const linea = lineaCorrente(), dep = $("#f_deposito"), hint = $("#depHint");
+  const fix = depFix()[linea], list = fix ? [fix] : (DEPOSITI[linea] || []);
   hint.innerHTML = ""; hint.hidden = true;
+  if (!linea) return;
   if (!list.length) { if (dep.dataset.auto) { dep.value = ""; dep.dataset.auto = ""; onEdit(); } return; }
-  if (list.length === 1) {
-    if (!dep.value || dep.dataset.auto) { dep.value = list[0]; dep.dataset.auto = "1"; onEdit(); }
-    return;
-  }
   if (dep.value && !dep.dataset.auto && list.includes(dep.value)) return;
-  if (dep.dataset.auto) { dep.value = ""; dep.dataset.auto = ""; onEdit(); }
-  hint.hidden = false;
-  hint.append(document.createTextNode("Linea su più depositi: "));
-  for (const d of list) {
-    const b = document.createElement("button"); b.type = "button"; b.className = "chip"; b.textContent = d;
-    b.addEventListener("click", () => { dep.value = d; dep.dataset.auto = ""; hint.hidden = true; onEdit(); });
-    hint.appendChild(b);
+  if (list.length === 1) { if (!dep.value || dep.dataset.auto) { dep.value = list[0]; dep.dataset.auto = "1"; onEdit(); } }
+  else if (dep.dataset.auto) { dep.value = ""; dep.dataset.auto = ""; onEdit(); }
+  depChoices(linea, list);
+}
+function depChoices(linea, list) {
+  const dep = $("#f_deposito"), hint = $("#depHint"), tutti = FIELDS.find((f) => f.k === "deposito").options;
+  hint.innerHTML = ""; hint.hidden = false;
+  const lab = document.createElement("span");
+  lab.textContent = list.length === 1 ? "Deposito proposto: " + list[0] + ". È sbagliato? Scegli:" : "Linea su più depositi, scegli:";
+  hint.appendChild(lab);
+  const pick = (d) => {
+    dep.value = d; dep.dataset.auto = ""; hint.hidden = true; onEdit();
+    if (list.length === 1 && d !== list[0]) { saveDepFix(linea, d); toast("Deposito corretto: per la linea " + linea + " d’ora in poi proporrò " + d + "."); }
+  };
+  const order = list.length > 1 ? [...list, ...tutti.filter((d) => !list.includes(d))] : tutti.filter((d) => d !== list[0]);
+  for (const d of order) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "chip" + (list.length > 1 && !list.includes(d) ? " other" : ""); b.textContent = d;
+    b.addEventListener("click", () => pick(d)); hint.appendChild(b);
   }
+  const ok = document.createElement("button"); ok.type = "button"; ok.className = "chip ok"; ok.textContent = list.length === 1 ? "✓ Va bene" : "Chiudi";
+  ok.addEventListener("click", () => { hint.hidden = true; });
+  if (list.length === 1) lab.after(ok); else hint.appendChild(ok);
 }
 function showInt(k, on) {
   const r = $("#row_" + k); if (!r) return;
