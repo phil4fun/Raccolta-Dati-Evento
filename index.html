@@ -193,6 +193,14 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
   .status { width: auto; }
   .sheet-head .actions:last-child { justify-content: space-between; }
 }
+.lxwrap { display: grid; border-top: 1px dashed var(--line); }
+.row > .lxwrap { grid-column: 2; }
+.lx:empty { display: none; }
+#row_linea_orario > .pair { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px; }
+.lxrow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px !important; border-bottom: 1px dashed var(--line); align-items: center; }
+.lxrow .x { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 20px; height: 44px; }
+.addl { justify-self: start; margin: 6px 12px 8px; border: 1px dashed var(--accent); background: transparent; color: var(--accent); border-radius: 8px; padding: 6px 12px; min-height: 36px; cursor: pointer; font-size: 13.5px; font-weight: 700; }
+@media (max-width: 600px) { .row > .lxwrap { grid-column: 1; } }
 .arch-tools { display: flex; gap: 8px; width: 100%; padding-top: 8px; border-top: 1px dashed var(--line); }
 #bClear:disabled { opacity: .45; }
 .confirm .btn { min-height: 36px; }
@@ -590,7 +598,11 @@ function disp(rec, f) {
     const old = f.legacy ? f.legacy(rec.campi) : null;
     return old ? f.fmt(old) : (rec.campi[f.k] || "");
   }
-  if (f.t === "pair") { const c = rec.campi; return (c[f.a.k] || c[f.b.k]) ? [c[f.a.k], f.b.k === "orario" ? ordinale(c[f.b.k]) : c[f.b.k]].filter(Boolean).join(" / ") : (c[f.legacy] || ""); }
+  if (f.t === "pair") {
+    const c = rec.campi, extra = (c.linee_extra || []).map((x) => [x.linea, ordinale(x.orario)].filter(Boolean).join(" / ")).filter(Boolean);
+    const main = (() => { return (c[f.a.k] || c[f.b.k]) ? [c[f.a.k], f.b.k === "orario" ? ordinale(c[f.b.k]) : c[f.b.k]].filter(Boolean).join(" / ") : (c[f.legacy] || ""); })();
+    return [main, ...extra].filter(Boolean).join("\n");
+  }
   return v;
 }
 const isBlank = (r) => FIELDS.every((f) => !disp(r, f));
@@ -853,6 +865,12 @@ function enhance() {
   for (const k of SUGG) { const dl = document.createElement("datalist"); dl.id = "dl_" + k; document.body.appendChild(dl); $("#f_" + k).setAttribute("list", dl.id); }
   $("#f_oe").addEventListener("change", () => pairFill("oe", "matricola"));
   $("#f_matricola").addEventListener("change", () => pairFill("matricola", "oe"));
+  /* più linee/orari */
+  const lx = document.createElement("div"); lx.className = "lx"; lx.id = "lineeExtra";
+  const addL = document.createElement("button"); addL.type = "button"; addL.className = "addl"; addL.textContent = "+ Aggiungi linea";
+  addL.addEventListener("click", () => { addLinea({}); lx.lastElementChild.querySelector("select").focus(); onEdit(); });
+  const lxWrap = document.createElement("div"); lxWrap.className = "lxwrap"; lxWrap.append(lx, addL);
+  $("#f_linea_orario").closest(".pair").after(lxWrap);
   /* linea -> deposito */
   const hint = document.createElement("div"); hint.className = "dephint"; hint.id = "depHint"; hint.hidden = true;
   $("#row_linea_orario").appendChild(hint);
@@ -878,6 +896,30 @@ function enhance() {
   tools.append(bz, hintv); ta.replaceWith(w); w.append(tools, ta);
   /* avanzamento per sezione */
   document.querySelectorAll(".sec").forEach((s) => { const p = document.createElement("span"); p.className = "prog"; s.appendChild(p); });
+}
+function addLinea(x) {
+  const box = $("#lineeExtra"), r = document.createElement("div"); r.className = "pair lxrow";
+  const left = document.createElement("div"); left.className = "cell";
+  const sel = document.createElement("select"); sel.setAttribute("aria-label", "Linea aggiuntiva");
+  sel.appendChild(new Option("— linea —", "")); for (const o of LINEE) sel.appendChild(new Option(o, o)); sel.appendChild(new Option("Altro…", "__altro"));
+  const other = document.createElement("input"); other.type = "text"; other.className = "altro"; other.placeholder = "Scrivi linea"; other.autocapitalize = "characters"; other.setAttribute("aria-label", "Linea aggiuntiva: altro");
+  const v = String(x.linea || "");
+  if (v && !LINEE.includes(v)) { sel.value = "__altro"; other.value = v; } else { sel.value = v; other.hidden = true; }
+  sel.addEventListener("change", () => { other.hidden = sel.value !== "__altro"; if (!other.hidden) other.focus(); onEdit(); });
+  other.addEventListener("input", onEdit);
+  left.append(sel, other);
+  const orr = document.createElement("input"); orr.type = "text"; orr.placeholder = "Orario"; orr.inputMode = "numeric"; orr.value = ordinale(x.orario); orr.setAttribute("aria-label", "Orario linea aggiuntiva");
+  orr.addEventListener("input", onEdit);
+  orr.addEventListener("blur", () => { const o = ordinale(orr.value); if (o !== orr.value) { orr.value = o; onEdit(); } });
+  const del = document.createElement("button"); del.type = "button"; del.className = "x"; del.textContent = "×"; del.title = "Togli questa linea"; del.setAttribute("aria-label", "Togli questa linea");
+  del.addEventListener("click", () => { r.remove(); onEdit(); });
+  r.append(left, orr, del); box.appendChild(r);
+}
+function readLinee() {
+  return [...document.querySelectorAll("#lineeExtra .lxrow")].map((r) => {
+    const sel = r.querySelector("select"), other = r.querySelector(".altro"), orr = r.querySelector("input:not(.altro)");
+    return { linea: (sel.value === "__altro" ? other.value.trim().toUpperCase() : sel.value), orario: ordinale(orr.value) };
+  }).filter((x) => x.linea || x.orario);
 }
 function pairFill(from, to) {
   const v = $("#f_" + from).value.trim().toLowerCase(), dest = $("#f_" + to);
@@ -962,6 +1004,8 @@ function bozza(rec) {
   s += ", la vettura " + (c.vettura || "____");
   if (c.linea) s += " della linea " + c.linea + (c.orario ? " orario " + ordinale(c.orario) : "");
   if (c.deposito) s += " (deposito " + c.deposito + ")";
+  const lx = (c.linee_extra || []).filter((x) => x.linea).map((x) => x.linea + (x.orario ? " orario " + ordinale(x.orario) : ""));
+  if (lx.length) s += ", coinvolte anche la linea " + lx.join(" e la linea ") + "";
   if (c.proveniente) s += ", proveniente da " + c.proveniente;
   if (c.oe) s += ", condotta dall’operatore d’esercizio " + c.oe + (c.matricola ? " (matr. " + c.matricola + ")" : "");
   s += ", " + (TIPO_FRASE[c.tipo_evento] || (c.tipo_evento ? "segnalava: " + c.tipo_evento.toLowerCase() : "…")) + ".";
@@ -998,6 +1042,7 @@ async function duplicate() {
   if (isBlank(rec)) { toast("La scheda è vuota: non c’è niente da duplicare."); return; }
   if (dirty) await save(false);
   for (const k of ["vettura", "linea", "orario", "deposito", "proveniente", "oe", "matricola", "danni_atac"]) rec.campi[k] = "";
+  rec.campi.linee_extra = [];
   current = null; fillForm(rec); dirty = true; await save(false);
   toast("Copia creata: inserisci vettura, linea e operatore.");
   $("#f_vettura").focus();
@@ -1030,8 +1075,10 @@ applyTheme(theme);
 $("#bTheme").addEventListener("click", () => { theme = theme === "auto" ? "light" : theme === "light" ? "dark" : "auto"; try { localStorage.setItem("rde_theme", theme); } catch {} applyTheme(theme); });
 
 /* aggancio alle funzioni esistenti */
+const _readForm = readForm;
+readForm = function () { const r = _readForm(); r.campi.linee_extra = $("#lineeExtra") ? readLinee() : []; return r; };
 const _fillForm = fillForm;
-fillForm = function (rec) { _fillForm(rec); const d = $("#f_deposito"); if (d) d.dataset.auto = ""; if ($("#depHint")) $("#depHint").hidden = true; refreshInterventi(rec ? rec.campi : {}); updateProgress(); };
+fillForm = function (rec) { _fillForm(rec); if ($("#lineeExtra")) { $("#lineeExtra").innerHTML = ""; for (const x of (rec && rec.campi.linee_extra) || []) addLinea(x); } const d = $("#f_deposito"); if (d) d.dataset.auto = ""; if ($("#depHint")) $("#depHint").hidden = true; refreshInterventi(rec ? rec.campi : {}); updateProgress(); };
 const _onEdit = onEdit;
 onEdit = function () { _onEdit(); clearTimeout(onEdit.t); onEdit.t = setTimeout(updateProgress, 250); };
 const _renderList = renderList;
