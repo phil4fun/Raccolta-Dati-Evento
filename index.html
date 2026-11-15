@@ -248,10 +248,10 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
   .tc label.chk { border-left: 0; border-top: 1px dashed var(--line); }
   .pair { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
   .note { padding: 0 4px; }
-  .mbar { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  .mbar { display: grid; grid-template-columns: 1fr 1fr 1fr 1.3fr; gap: 8px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
     padding: 8px calc(10px + env(safe-area-inset-right, 0px)) calc(8px + var(--safe-b)) calc(10px + env(safe-area-inset-left, 0px));
     background: color-mix(in srgb, var(--surface) 92%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-top: 1px solid var(--line); }
-  .mbar .btn { min-height: 48px; font-size: 15px; padding: 8px 6px; }
+  .mbar .btn { min-height: 48px; font-size: 14.5px; padding: 8px 4px; }
   .toast { bottom: calc(80px + var(--safe-b)); }
 }
 </style>
@@ -268,6 +268,7 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
       <div class="sheet-head">
         <label for="f_data">Data dell’evento <input type="date" id="f_data"></label>
         <div class="actions">
+          <button type="button" class="btn" id="bReset">Reset</button>
           <button type="button" class="btn" id="bNew">Nuova scheda</button>
           <button type="button" class="btn primary" id="bSave">Salva</button>
         </div>
@@ -299,6 +300,7 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 </div>
 <nav class="mbar" aria-label="Azioni rapide">
   <button type="button" class="btn" id="mArch">Archivio</button>
+  <button type="button" class="btn" id="mReset">Reset</button>
   <button type="button" class="btn" id="mNew">Nuova</button>
   <button type="button" class="btn primary" id="mSave">Salva</button>
 </nav>
@@ -1037,6 +1039,19 @@ async function copyRiepilogo() {
   try { await navigator.clipboard.writeText(text); toast("Riepilogo copiato: incollalo dove ti serve."); }
   catch { ask("Riepilogo", "Copia il testo qui sotto.", [["Chiudi", false]], text); }
 }
+/* Reset: svuota tutti i campi; se la scheda era già in archivio la toglie (i PDF già su Drive restano) */
+async function resetSheet() {
+  const rec = readForm();
+  if (isBlank(rec) && !current) { fillForm(null); toast("La scheda è già vuota."); return; }
+  const inArch = !!current;
+  const okk = await ask("Ripulire la scheda?", "Tutti i campi verranno svuotati" + (inArch ? " e questa scheda sarà tolta dall’archivio" : "") + ". Non si può annullare.", [["Annulla", false], ["Sì, ripulisci", true, true]]);
+  if (!okk) return;
+  clearTimeout(saveTimer);
+  if (inArch && db) { try { await db.doc("eventi/" + current).delete(); } catch {} }
+  current = null; dirty = false; fillForm(null);
+  status(db ? "Scheda ripulita" : "Archivio non raggiungibile", db ? "ok" : "warn");
+  window.scrollTo({ top: 0 }); toast("Scheda ripulita.");
+}
 async function duplicate() {
   const rec = readForm();
   if (isBlank(rec)) { toast("La scheda è vuota: non c’è niente da duplicare."); return; }
@@ -1088,6 +1103,8 @@ renderList = function () { _renderList(); updateSuggestions(); };
 $("#logo").src = LOGO_PNG;
 buildRows(); enhance(); fillForm(null);
 $("#bDup").addEventListener("click", duplicate);
+$("#bReset").addEventListener("click", resetSheet);
+$("#mReset").addEventListener("click", resetSheet);
 $("#bRiep").addEventListener("click", copyRiepilogo);
 $("#bSave").addEventListener("click", () => save(true));
 $("#bNew").addEventListener("click", newSheet);
