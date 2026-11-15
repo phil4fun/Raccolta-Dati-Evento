@@ -137,6 +137,7 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 .item .m { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .empty { padding: 14px; color: var(--muted); font-size: 14px; }
 .arch-foot { padding: 10px 14px; border-top: 1px solid var(--line); display: flex; gap: 8px; flex-wrap: wrap; }
+.arch-foot:empty { display: none; }
 
 .note { grid-column: 1 / -1; font-size: 13px; color: var(--muted); }
 .toast { position: fixed; left: 50%; bottom: calc(18px + var(--safe-b)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: calc(100% - 32px); z-index: 30; }
@@ -149,6 +150,9 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 .gps { margin: 4px 8px; border: 1px solid var(--accent); background: var(--surface); color: var(--accent); border-radius: 8px; padding: 6px 10px; min-height: 36px; font-size: 13.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .gps:disabled { opacity: .6; cursor: progress; }
 @media (max-width: 600px) { .gpsrow { grid-template-columns: 1fr; } .gps { justify-self: start; margin: 0 12px 10px; min-height: 40px; } }
+.arch-tools { display: flex; gap: 8px; width: 100%; padding-top: 8px; border-top: 1px dashed var(--line); }
+#bClear:disabled { opacity: .45; }
+.confirm .btn { min-height: 36px; }
 /* bottom bar: phones only */
 .mbar { display: none; }
 
@@ -186,7 +190,7 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
   .sheet-head label { width: 100%; justify-content: space-between; font-weight: 700; color: var(--label); }
   .sheet-head input[type=date] { flex: 1; max-width: 60%; min-height: 44px; }
   .sheet-head:first-child .actions { display: none; }   /* Nuova/Salva live in the bottom bar */
-  #exportActions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  #exportActions { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); width: 100%; }
   #exportActions .btn { padding: 10px 4px; font-size: 13.5px; min-height: 46px; }
   .sheet-head .actions:last-child { width: 100%; justify-content: flex-end; }
   .tc { grid-template-columns: 1fr; }
@@ -220,9 +224,7 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
       <div id="rows"></div>
       <div class="sheet-head">
         <div class="actions" id="exportActions">
-          <button type="button" class="btn" data-exp="pdf">Esporta PDF</button>
-          <button type="button" class="btn" data-exp="docx">Esporta Word</button>
-          <button type="button" class="btn" data-exp="xlsx">Esporta Excel</button>
+          <button type="button" class="btn" data-exp="pdf">Esporta PDF</button><button type="button" class="btn primary" id="bDrive">Invia a Drive</button>
         </div>
         <div class="actions">
           <span class="confirm" id="confirmDel">Eliminare questa scheda? <button type="button" class="btn" id="bDelYes">Sì, elimina</button><button type="button" class="btn" id="bDelNo">Annulla</button></span>
@@ -238,10 +240,10 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
       <input type="search" id="q" placeholder="Cerca per tipo, vettura, linea, matricola…" aria-label="Cerca nell’archivio">
     </div>
     <ul class="list" id="list"></ul>
-    <div class="arch-foot"><button type="button" class="btn" id="bExpAll">Excel di tutte le schede</button><button type="button" class="btn" id="bBackup">Backup</button><button type="button" class="btn" id="bRestore">Ripristina</button><input type="file" id="fRestore" accept=".json,application/json" hidden></div>
+    <div class="arch-foot"><button type="button" class="btn primary" id="bDriveAll">Invia tutte a Drive</button><button type="button" class="btn" id="bClear">Svuota archivio</button><span class="confirm" id="confirmClear"><span id="clearMsg"></span> <button type="button" class="btn" id="bClearYes">Sì, svuota</button><button type="button" class="btn" id="bClearNo">Annulla</button></span><span class="arch-tools"><button type="button" class="btn" id="bBackup">Backup</button><button type="button" class="btn" id="bRestore">Ripristina</button><input type="file" id="fRestore" accept=".json,application/json" hidden></span></div>
   </aside>
 
-  <p class="note">Le schede si salvano da sole mentre scrivi e restano solo su questo telefono, in questo browser: nessuno le vede e non vanno su internet. Fai ogni tanto un Backup e conservalo (Drive, email a te stesso): serve per ripristinarle se cambi telefono o cancelli i dati del browser. L’esportazione riproduce lo schema del modulo “Raccolta Dati Evento”.</p>
+  <p class="note">Le schede si salvano da sole mentre scrivi e restano su questo telefono, in questo browser, finché non le invii tu. Con «Invia a Drive» il PDF della scheda va nella cartella “Raccolta Dati Evento” del tuo Google Drive; «Svuota archivio» toglie dal telefono solo le schede già inviate e non più modificate. L’esportazione riproduce lo schema del modulo “Raccolta Dati Evento”.</p>
 </div>
 <nav class="mbar" aria-label="Azioni rapide">
   <button type="button" class="btn" id="mArch">Archivio</button>
@@ -590,7 +592,7 @@ async function newSheet() {
 function title(r) { return r.campi.tipo_evento || "Evento senza tipo"; }
 function meta(r) {
   const bits = [itDate(r.data), r.campi.ora_evento, r.campi.vettura && "vett. " + r.campi.vettura, r.campi.linea && "linea " + r.campi.linea].filter(Boolean);
-  return bits.join(" · ");
+  return bits.join(" · ") + (window.driveMark ? window.driveMark(r) : "");
 }
 function renderList() {
   const q = $("#q").value.trim().toLowerCase();
@@ -634,7 +636,7 @@ async function offer(filename, data) {
 }
 function b64ToBytes(b64) { const bin = atob(b64); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
 
-async function exportPDF(rec) {
+async function makePDF(rec) {
   await loadScript("./jspdf.umd.min.js");
   await loadScript("./jspdf.plugin.autotable.min.js");
   const { jsPDF } = window.jspdf;
@@ -656,8 +658,9 @@ async function exportPDF(rec) {
       else if (d.row.index === 0) d.cell.styles.lineWidth = { top: 0.5 };
     },
   });
-  await offer(fileBase(rec) + ".pdf", doc.output("blob"));
+  return doc.output("blob");
 }
+async function exportPDF(rec) { await offer(fileBase(rec) + ".pdf", await makePDF(rec)); }
 
 const xmlEsc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const norm = (s) => s.toLowerCase().replace(/[^a-z]/g, "");
@@ -765,7 +768,7 @@ async function exportAll() {
 async function runExport(kind) {
   const rec = readForm();
   if (isBlank(rec)) { toast("La scheda è vuota: non c’è niente da esportare."); return; }
-  if (dirty) save(false);
+  if (dirty) await save(false);
   const btns = document.querySelectorAll("[data-exp]"); btns.forEach((b) => (b.disabled = true));
   try { await (kind === "pdf" ? exportPDF(rec) : kind === "docx" ? exportDOCX(rec) : exportXLSX(rec)); }
   catch (e) { console.error(e); toast("Esportazione non riuscita: controlla la connessione e riprova."); }
@@ -785,7 +788,7 @@ $("#bDel").addEventListener("click", () => { $("#confirmDel").classList.add("on"
 $("#bDelNo").addEventListener("click", () => { $("#confirmDel").classList.remove("on"); $("#bDel").hidden = false; });
 $("#bDelYes").addEventListener("click", del);
 document.querySelectorAll("[data-exp]").forEach((b) => b.addEventListener("click", () => runExport(b.dataset.exp)));
-$("#bExpAll").addEventListener("click", async () => { try { await exportAll(); } catch { toast("Esportazione non riuscita."); } });
+$("#bExpAll")?.addEventListener("click", async () => { try { await exportAll(); } catch { toast("Esportazione non riuscita."); } });
 
 /* ---------- archivio locale (GitHub Pages) ---------- */
 const STORE = "rde_eventi_v1";
@@ -851,6 +854,115 @@ const browserDownloads = {
       toast("Ripristino fatto: " + nuovi + " nuove, " + agg + " aggiornate.");
     } catch { toast("File di backup non valido."); }
   });
+/* ---------- Google Drive: PDF di ogni scheda nella cartella "Raccolta Dati Evento" ---------- */
+  const GOOGLE_CLIENT_ID = "__CLIENT_ID__";
+  const DRIVE_FOLDER = "Raccolta Dati Evento";
+  const DRIVE_MAP = "rde_drive_v1";   // { idScheda: { fileId, modificato } }
+  const driveMap = () => { try { return JSON.parse(localStorage.getItem(DRIVE_MAP) || "{}"); } catch { return {}; } };
+  const setDriveMap = (m) => localStorage.setItem(DRIVE_MAP, JSON.stringify(m));
+  const onDrive = (r) => { const m = driveMap()[r.id]; return !!(m && m.fileId && m.modificato === r.modificato); };
+  window.driveMark = (r) => onDrive(r) ? " · ✓ su Drive" : "";
+  let gToken = null, gTokenExp = 0, gTokenClient = null;
+  function driveReady() {
+    if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.startsWith("__")) { toast("Google Drive non è ancora configurato in questa app."); return false; }
+    if (!navigator.onLine) { toast("Sei senza connessione: riprova quando c’è rete."); return false; }
+    return true;
+  }
+  function getToken() {
+    if (gToken && Date.now() < gTokenExp - 60000) return Promise.resolve(gToken);
+    return loadScript("https://accounts.google.com/gsi/client").then(() => new Promise((ok, ko) => {
+      gTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID, scope: "https://www.googleapis.com/auth/drive.file",
+        callback: (r) => { if (r.error) return ko(new Error(r.error)); gToken = r.access_token; gTokenExp = Date.now() + (r.expires_in || 3600) * 1000; ok(gToken); },
+        error_callback: (e) => ko(new Error((e && e.type) || "popup")),
+      });
+      gTokenClient.requestAccessToken({ prompt: "" });
+    }));
+  }
+  async function gapi(url, opt = {}) {
+    const tok = await getToken();
+    const r = await fetch(url, { ...opt, headers: { ...(opt.headers || {}), Authorization: "Bearer " + tok } });
+    if (r.status === 401) { gToken = null; throw new Error("auth"); }
+    return r;
+  }
+  async function folderId() {
+    const saved = localStorage.getItem("rde_drive_folder");
+    if (saved) { const r = await gapi("https://www.googleapis.com/drive/v3/files/" + saved + "?fields=id,trashed"); if (r.ok) { const j = await r.json(); if (!j.trashed) return saved; } }
+    const q = encodeURIComponent("name='" + DRIVE_FOLDER + "' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+    let j = await (await gapi("https://www.googleapis.com/drive/v3/files?fields=files(id)&q=" + q)).json();
+    let id = j.files && j.files[0] && j.files[0].id;
+    if (!id) {
+      const r = await gapi("https://www.googleapis.com/drive/v3/files?fields=id", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: DRIVE_FOLDER, mimeType: "application/vnd.google-apps.folder" }) });
+      if (!r.ok) throw new Error("folder"); id = (await r.json()).id;
+    }
+    localStorage.setItem("rde_drive_folder", id); return id;
+  }
+  async function uploadRecord(r, folder) {
+    const blob = await makePDF(r), name = fileBase(r) + ".pdf", map = driveMap(), prev = map[r.id];
+    let res;
+    if (prev && prev.fileId) {   // scheda già inviata e poi modificata: aggiorna lo stesso file
+      res = await gapi("https://www.googleapis.com/upload/drive/v3/files/" + prev.fileId + "?uploadType=multipart&fields=id", { method: "PATCH", body: multipart({ name }, blob) });
+      if (res.status === 404) res = null;
+    }
+    if (!res) res = await gapi("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", { method: "POST", body: multipart({ name, parents: [folder], mimeType: "application/pdf" }, blob) });
+    if (!res.ok) throw new Error("upload " + res.status);
+    const j = await res.json(); const m = driveMap(); m[r.id] = { fileId: j.id, modificato: r.modificato }; setDriveMap(m);
+  }
+  function multipart(meta, blob) {
+    const fd = new FormData();
+    fd.append("metadata", new Blob([JSON.stringify(meta)], { type: "application/json" }));
+    fd.append("file", blob, meta.name);
+    return fd;
+  }
+  async function sendToDrive(list, btn) {
+    if (!driveReady()) return;
+    const label = btn.textContent; btn.disabled = true;
+    let done = 0;
+    try {
+      btn.textContent = "Accesso a Google…"; await getToken();
+      const folder = await folderId();
+      for (const r of list) { btn.textContent = "Invio " + (done + 1) + "/" + list.length + "…"; await uploadRecord(r, folder); done++; }
+      toast(list.length === 1 ? "PDF salvato su Drive, cartella “" + DRIVE_FOLDER + "”." : done + " PDF salvati su Drive, cartella “" + DRIVE_FOLDER + "”.");
+    } catch (e) {
+      console.error(e);
+      toast(String(e.message).includes("popup") || String(e.message).includes("access_denied") ? "Accesso a Google annullato." : (done ? done + " inviati, poi l’invio si è interrotto: riprova." : "Invio a Drive non riuscito: riprova."));
+    } finally { btn.textContent = label; btn.disabled = false; renderList(); updateClear(); }
+  }
+  function updateClear() {
+    const n = records.filter(onDrive).length;
+    $("#bClear").disabled = !n; $("#bClear").textContent = n ? "Svuota archivio (" + n + ")" : "Svuota archivio";
+  }
+  $("#bDrive").addEventListener("click", async () => {
+    const rec = readForm();
+    if (isBlank(rec)) { toast("La scheda è vuota: non c’è niente da inviare."); return; }
+    if (dirty || !current) await save(false);
+    const r = records.find((x) => x.id === current);
+    if (!r) { toast("Salva la scheda prima di inviarla."); return; }
+    if (onDrive(r)) { toast("Questa scheda è già su Drive, non è cambiata."); return; }
+    sendToDrive([r], $("#bDrive"));
+  });
+  $("#bDriveAll").addEventListener("click", async () => {
+    if (dirty) await save(false);
+    const todo = records.filter((r) => !onDrive(r) && !isBlank(r));
+    if (!todo.length) { toast(records.length ? "Tutte le schede sono già su Drive." : "Nessuna scheda da inviare."); return; }
+    sendToDrive(todo, $("#bDriveAll"));
+  });
+  $("#bClear").addEventListener("click", () => {
+    const n = records.filter(onDrive).length, rest = records.length - n;
+    $("#clearMsg").textContent = "Togliere dal telefono " + (n === 1 ? "la scheda già su Drive" : "le " + n + " schede già su Drive") + "?" + (rest ? " Le altre " + rest + " restano." : "");
+    $("#confirmClear").classList.add("on"); $("#bClear").hidden = true;
+  });
+  $("#bClearNo").addEventListener("click", () => { $("#confirmClear").classList.remove("on"); $("#bClear").hidden = false; });
+  $("#bClearYes").addEventListener("click", () => {
+    $("#confirmClear").classList.remove("on"); $("#bClear").hidden = false;
+    const all = db.all(), map = driveMap(); let n = 0;
+    for (const r of records) if (onDrive(r)) { delete all[r.id]; delete map[r.id]; n++; }
+    if (current && !all[current]) { current = null; dirty = false; fillForm(null); }
+    setDriveMap(map); db.replaceAll(all);
+    toast(n + (n === 1 ? " scheda tolta" : " schede tolte") + " dal telefono. I PDF restano su Drive.");
+  });
+  db.collection("eventi").orderBy("modificato", "desc").onSnapshot(() => setTimeout(updateClear));
+  
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 })();
 </script>
