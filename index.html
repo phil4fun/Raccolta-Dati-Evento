@@ -361,6 +361,8 @@ const LINEE = ["2", "3", "3BUS", "3L", "3NAV", "5", "8", "8BUS", "14", "14NAV", 
 
 const $ = (s) => document.querySelector(s);
 const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+/* orario della linea: un numero diventa ordinale (8 -> 8°) */
+const ordinale = (v) => { v = String(v || "").trim(); return /^\d+$/.test(v) ? v + "°" : v.replace(/^(\d+)\s*[°ºo]$/i, "$1°"); };
 const itDate = (iso) => iso ? iso.split("-").reverse().join("/") : "";
 let db = null, downloads = null, records = [], current = null, dirty = false, saveTimer = null, saving = false;
 
@@ -455,6 +457,7 @@ function buildRows() {
       left.append(sel, other);
       const right = document.createElement("input"); right.type = "text"; right.id = id + "_b"; right.placeholder = B.l; right.setAttribute("aria-label", B.l);
       right.addEventListener("input", onEdit);
+      if (B.k === "orario") { right.inputMode = "numeric"; right.addEventListener("blur", () => { const o = ordinale(right.value); if (o !== right.value) { right.value = o; onEdit(); } }); }
       el.append(left, right);
     } else {
       if (f.t === "area") { el = document.createElement("textarea"); }
@@ -544,7 +547,7 @@ function readForm() {
     else if (f.t === "pair") {
       const typed = $("#f_" + f.k + "_altro").value.trim();
       v[f.a.k] = el.value === "__altro" ? (f.a.upper ? typed.toUpperCase() : typed) : el.value;
-      v[f.b.k] = $("#f_" + f.k + "_b").value.trim();
+      v[f.b.k] = f.b.k === "orario" ? ordinale($("#f_" + f.k + "_b").value) : $("#f_" + f.k + "_b").value.trim();
     }
     else v[f.k] = el.value.trim();
   }
@@ -570,7 +573,7 @@ function fillForm(rec) {
     else if (f.t === "pair") {
       const other = $("#f_" + f.k + "_altro"), a = c[f.a.k] || "", opts = f.a.options === "LINEE" ? LINEE : f.a.options;
       if (!a || opts.includes(a)) { el.value = a; other.value = ""; other.hidden = true; } else { el.value = "__altro"; other.value = a; other.hidden = false; }
-      $("#f_" + f.k + "_b").value = c[f.b.k] || (!a && f.legacy !== f.b.k ? (c[f.legacy] || "") : "");
+      $("#f_" + f.k + "_b").value = ordinale(c[f.b.k] || (!a && f.legacy !== f.b.k ? (c[f.legacy] || "") : ""));
     }
     else el.value = val;
   }
@@ -587,7 +590,7 @@ function disp(rec, f) {
     const old = f.legacy ? f.legacy(rec.campi) : null;
     return old ? f.fmt(old) : (rec.campi[f.k] || "");
   }
-  if (f.t === "pair") { const c = rec.campi; return (c[f.a.k] || c[f.b.k]) ? [c[f.a.k], c[f.b.k]].filter(Boolean).join(" / ") : (c[f.legacy] || ""); }
+  if (f.t === "pair") { const c = rec.campi; return (c[f.a.k] || c[f.b.k]) ? [c[f.a.k], f.b.k === "orario" ? ordinale(c[f.b.k]) : c[f.b.k]].filter(Boolean).join(" / ") : (c[f.legacy] || ""); }
   return v;
 }
 const isBlank = (r) => FIELDS.every((f) => !disp(r, f));
@@ -957,7 +960,7 @@ function bozza(rec) {
   if (c.luogo_evento) s += ", in " + c.luogo_evento.replace(/\s*\(GPS[^)]*\)/, "");
   if (c.altezza_fermata) s += " (altezza fermata " + c.altezza_fermata + ")";
   s += ", la vettura " + (c.vettura || "____");
-  if (c.linea) s += " della linea " + c.linea + (c.orario ? " orario " + c.orario : "");
+  if (c.linea) s += " della linea " + c.linea + (c.orario ? " orario " + ordinale(c.orario) : "");
   if (c.deposito) s += " (deposito " + c.deposito + ")";
   if (c.proveniente) s += ", proveniente da " + c.proveniente;
   if (c.oe) s += ", condotta dall’operatore d’esercizio " + c.oe + (c.matricola ? " (matr. " + c.matricola + ")" : "");
