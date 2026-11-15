@@ -855,7 +855,7 @@ const browserDownloads = {
     } catch { toast("File di backup non valido."); }
   });
 /* ---------- Google Drive: PDF di ogni scheda nella cartella "Raccolta Dati Evento" ---------- */
-  const GOOGLE_CLIENT_ID = "__CLIENT_ID__";
+  const GOOGLE_CLIENT_ID = "1069537973944-3ou5m9qv3nqvcpqurvgopl7pmg9vb2bt.apps.googleusercontent.com";
   const DRIVE_FOLDER = "Raccolta Dati Evento";
   const DRIVE_MAP = "rde_drive_v1";   // { idScheda: { fileId, modificato } }
   const driveMap = () => { try { return JSON.parse(localStorage.getItem(DRIVE_MAP) || "{}"); } catch { return {}; } };
