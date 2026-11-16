@@ -315,7 +315,7 @@ const SEZIONI = { tipo_evento: "Evento e mezzo Atac", auto_privata: "Terzo coinv
 const ORARI = (c) => [c.dalle && "dalle " + c.dalle, c.alle && "alle " + c.alle];
 const FIELDS = [
   /* 1. l'evento e il mezzo Atac */
-  { k: "tipo_evento", l: "Tipo Evento", t: "choice", options: ["Collisione", "Congestione stradale", "Incidente coinvolti", "Incidente terzi", "Ingombro stradale", "Malore conducente", "Malore passeggero", "Ripristino fermata", "Spostamento fermata", "Urto"], altro: true },
+  { k: "tipo_evento", l: "Tipo Evento", t: "choice", options: ["Atto vandalico", "Collisione", "Congestione stradale", "Danni al materiale aziendale", "Imbrattamento vettura", "Incidente coinvolti", "Incidente terzi", "Ingombro stradale", "Malore conducente", "Malore passeggero", "Ripristino fermata", "Spostamento fermata", "Urto"], altro: true },
   { k: "ora_evento", l: "Ora Evento", t: "time" },
   { k: "luogo_evento", l: "Luogo Evento", ph: "Via / piazza, civico o incrocio, direzione", gps: true },
   { k: "altezza_fermata", l: "Altezza fermata", ph: "Nome o codice della fermata" },
@@ -593,6 +593,7 @@ function fillForm(rec) {
 function disp(rec, f) {
   const v = rec.campi[f.k] || "";
   if (f.t === "yesno") { const sn = rec.campi[f.k + "_sn"] || ""; return [sn, v].filter(Boolean).join("\n"); }
+  if (f.k === "tipo_evento" && rec.campi.deviazioni_sn === "SI") return [v, "con deviazione"].filter(Boolean).join(" – ");
   if (f.t === "textcheck") return [v, rec.campi[f.k + "_chk"] && f.check].filter(Boolean).join(" – ");
   if (f.t === "multi") {
     const list = rec.campi[f.store] || [];
@@ -700,7 +701,15 @@ async function offer(filename, data) {
 }
 function b64ToBytes(b64) { const bin = atob(b64); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
 
+async function loadPdfLib() {
+  if (window.PDFLib) return true;
+  for (const u of ["./pdf-lib.min.js", "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"]) {
+    try { await loadScript(u); if (window.PDFLib) return true; } catch {}
+  }
+  return false;
+}
 async function makePDF(rec) {
+  const editable = await loadPdfLib();   // senza la libreria il PDF esce comunque, solo non modificabile
   await loadScript("./jspdf.umd.min.js");
   await loadScript("./jspdf.plugin.autotable.min.js");
   const { jsPDF } = window.jspdf;
@@ -710,6 +719,8 @@ async function makePDF(rec) {
   doc.setFont("helvetica", "bolditalic"); doc.setFontSize(20); doc.setTextColor(...RED);
   doc.text("Raccolta Dati Evento", 297.6, 62, { align: "center" });
   const body = FIELDS.map((f) => [f.l + ":", disp(rec, f)]);
+  /* PDF modificabile: ogni valore è un campo compilabile, già riempito */
+  const fields = [];
   doc.autoTable({
     startY: 92, margin: { left: 62, right: 62 }, body, theme: "plain",
     styles: { font: "helvetica", fontSize: 9.5, textColor: RED, cellPadding: { top: 3, bottom: 3, left: 5, right: 5 }, lineColor: LINE, lineWidth: 0, valign: "top", overflow: "linebreak" },
@@ -721,9 +732,28 @@ async function makePDF(rec) {
       if (d.column.index === 1) { d.cell.styles.lineWidth = { top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 }; d.cell.styles.textColor = [0, 0, 0]; }
       else if (d.row.index === 0) d.cell.styles.lineWidth = { top: 0.5 };
     },
+    willDrawCell: (d) => { if (editable && d.section === "body" && d.column.index === 1) { fields.push({ f: FIELDS[d.row.index], x: d.cell.x, y: d.cell.y, w: d.cell.width, h: d.cell.height, page: doc.internal.getCurrentPageInfo().pageNumber, v: disp(rec, FIELDS[d.row.index]) }); d.cell.text = []; } },
   });
-  return doc.output("blob");
+  /* campi compilabili con pdf-lib: il testo resta visibile in ogni lettore (Chrome, Drive, iPhone, Acrobat) */
+  if (!editable) return doc.output("blob");
+  const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
+  const pdf = await PDFDocument.load(doc.output("arraybuffer"));
+  const font = await pdf.embedFont(StandardFonts.Helvetica), form = pdf.getForm(), pages = pdf.getPages();
+  for (const c of fields) {
+    const page = pages[c.page - 1], H = page.getHeight();
+    const tf = form.createTextField(c.f.k);
+    const multi = c.h > 20 || /\n/.test(c.v);
+    if (multi) tf.enableMultiline();
+    tf.setText(pdfText(c.v));
+    tf.addToPage(page, { x: c.x + 0.8, y: H - c.y - c.h + 0.8, width: c.w - 1.6, height: c.h - 1.6, font, textColor: rgb(0, 0, 0), borderWidth: 0, borderColor: undefined, backgroundColor: undefined });
+    tf.setFontSize(9.5);
+  }
+  form.updateFieldAppearances(font);
+  return new Blob([await pdf.save()], { type: "application/pdf" });
+
 }
+/* testo sicuro per i campi PDF (carattere standard Helvetica) */
+const pdfText = (t) => String(t || "").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, "-").replace(/…/g, "...").replace(/[^\n\x20-\x7E\u00A0-\u00FF]/g, "");
 async function exportPDF(rec) { await offer(fileBase(rec) + ".pdf", await makePDF(rec)); }
 
 const xmlEsc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -863,6 +893,16 @@ function enhance() {
     const el = $("#f_" + k), w = document.createElement("div"); w.className = "gpsrow";
     el.replaceWith(w); w.append(el, nowBtn(el));
   }
+  /* spunta "Deviazione" sulla riga Tipo Evento, collegata alla riga Deviazioni SI/NO */
+  {
+    const cell = $("#f_tipo_evento").closest(".cell"), w = document.createElement("div"); w.className = "tc";
+    cell.replaceWith(w);
+    const lab = document.createElement("label"); lab.className = "chk";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.id = "f_tipo_dev";
+    lab.append(cb, document.createTextNode(" Deviazione"));
+    w.append(cell, lab);
+    cb.addEventListener("change", () => { setYN("deviazioni", cb.checked ? "SI" : "NO"); onEdit(); });
+  }
   /* suggerimenti dalle schede passate */
   for (const k of SUGG) { const dl = document.createElement("datalist"); dl.id = "dl_" + k; document.body.appendChild(dl); $("#f_" + k).setAttribute("list", dl.id); }
   $("#f_oe").addEventListener("change", () => pairFill("oe", "matricola"));
@@ -989,6 +1029,9 @@ function updateProgress() {
 const TIPO_FRASE = {
   "Collisione": "rimaneva coinvolta in una collisione",
   "Urto": "rimaneva coinvolta in un urto",
+  "Atto vandalico": "subiva un atto vandalico",
+  "Imbrattamento vettura": "risultava imbrattata",
+  "Danni al materiale aziendale": "riportava danni al materiale aziendale",
   "Incidente terzi": "rilevava un incidente tra terzi",
   "Incidente coinvolti": "rimaneva coinvolta in un incidente",
   "Ingombro stradale": "rimaneva bloccata al transito a causa di un ingombro",
@@ -1093,9 +1136,9 @@ $("#bTheme").addEventListener("click", () => { theme = theme === "auto" ? "light
 const _readForm = readForm;
 readForm = function () { const r = _readForm(); r.campi.linee_extra = $("#lineeExtra") ? readLinee() : []; return r; };
 const _fillForm = fillForm;
-fillForm = function (rec) { _fillForm(rec); if ($("#lineeExtra")) { $("#lineeExtra").innerHTML = ""; for (const x of (rec && rec.campi.linee_extra) || []) addLinea(x); } const d = $("#f_deposito"); if (d) d.dataset.auto = ""; if ($("#depHint")) $("#depHint").hidden = true; refreshInterventi(rec ? rec.campi : {}); updateProgress(); };
+fillForm = function (rec) { _fillForm(rec); if ($("#lineeExtra")) { $("#lineeExtra").innerHTML = ""; for (const x of (rec && rec.campi.linee_extra) || []) addLinea(x); } const d = $("#f_deposito"); if (d) d.dataset.auto = ""; if ($("#depHint")) $("#depHint").hidden = true; refreshInterventi(rec ? rec.campi : {}); updateProgress(); const cb = $("#f_tipo_dev"); if (cb) cb.checked = !!(rec && rec.campi.deviazioni_sn === "SI"); };
 const _onEdit = onEdit;
-onEdit = function () { _onEdit(); clearTimeout(onEdit.t); onEdit.t = setTimeout(updateProgress, 250); };
+onEdit = function () { _onEdit(); { const cb = $("#f_tipo_dev"), yn = $("#f_deviazioni_yn"); if (cb && yn) cb.checked = yn.dataset.v === "SI"; } clearTimeout(onEdit.t); onEdit.t = setTimeout(updateProgress, 250); };
 const _renderList = renderList;
 renderList = function () { _renderList(); updateSuggestions(); };
 
