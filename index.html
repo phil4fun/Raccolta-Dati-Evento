@@ -425,6 +425,8 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 .tab .nb { background: var(--gold); color: #3b2a00; }
 @media (max-width: 600px) { #exportActions { grid-template-columns: 1fr 1fr !important; } #bMailFono { grid-column: 1 / -1; } }
 @media (min-width: 601px) { #exportActions { flex-wrap: wrap; } }
+.themeb.sync { opacity: .75; } .themeb.sync.on { opacity: 1; background: rgba(255,255,255,.18); } .themeb.sync.err { background: #f2b705; color: #3b2a00; }
+.mbox .sy { font-size: 14.5px; }
 </style>
 </head>
 <body>
@@ -1518,7 +1520,7 @@ function openSettings() {
   const P = getProfile();
   const bg = document.createElement("div"); bg.className = "modal"; bg.setAttribute("role", "dialog"); bg.setAttribute("aria-modal", "true");
   bg.innerHTML = `<div class="mbox ragbox"><h3>Impostazioni del compilatore</h3>
-    <p class="hint">Questi dati restano solo su questo dispositivo. Servono per l’intestazione del R.A.G. e per la firma in fondo ai PDF.</p>
+    <p class="hint">Servono per l’intestazione del R.A.G. e per la firma in fondo ai PDF. Restano sul telefono (e sul tuo account, se attivi la sincronizzazione ☁).</p>
     <div class="ragf"><label for="pf_nome">Io sottoscritto</label><input id="pf_nome" type="text" placeholder="Cognome Nome"></div>
     <div class="ragf"><label for="pf_matr">Matricola</label><input id="pf_matr" type="text" inputmode="numeric"></div>
     <div class="ragf"><label for="pf_qual">Qualifica</label><input id="pf_qual" type="text"></div>
@@ -1534,7 +1536,7 @@ function openSettings() {
   $p("#pf_no").addEventListener("click", () => bg.remove());
   $p("#pf_ok").addEventListener("click", () => {
     setProfile({ nome: $p("#pf_nome").value.trim(), matricola: $p("#pf_matr").value.trim(), qualifica: $p("#pf_qual").value.trim(), natoA: $p("#pf_natoa").value.trim(), natoIl: $p("#pf_natoil").value, settore: $p("#pf_sett").value.trim() || "Nord" });
-    bg.remove(); toast("Impostazioni salvate su questo dispositivo.");
+    bg.remove(); toast("Impostazioni salvate.");
   });
 }
 
@@ -2185,7 +2187,7 @@ const browserDownloads = {
     if (gToken && Date.now() < gTokenExp - 60000) return Promise.resolve(gToken);
     return loadScript("https://accounts.google.com/gsi/client").then(() => new Promise((ok, ko) => {
       gTokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID, scope: "https://www.googleapis.com/auth/drive.file",
+        client_id: GOOGLE_CLIENT_ID, scope: "https://www.googleapis.com/auth/drive.file openid email profile",
         callback: (r) => { if (r.error) return ko(new Error(r.error)); gToken = r.access_token; gTokenExp = Date.now() + (r.expires_in || 3600) * 1000; ok(gToken); },
         error_callback: (e) => ko(new Error((e && e.type) || "popup")),
       });
@@ -2341,6 +2343,128 @@ const browserDownloads = {
     toast(n + (n === 1 ? " scheda tolta" : " schede tolte") + " dal telefono. PDF e foto restano su Drive.");
   });
   db.collection("eventi").orderBy("modificato", "desc").onSnapshot(() => setTimeout(updateClear));
+  
+  /* ---------- sincronizzazione tra telefoni (Firebase): schede, deviazioni, fonogrammi, turno, impostazioni ---------- */
+  const FB_CONFIG = { apiKey: "AIzaSyANih3-d07NKBU0UnKO5mUAbYZfk6Ovwzg", authDomain: "raccolta-dati-evento-b3d9e.firebaseapp.com", projectId: "raccolta-dati-evento-b3d9e", storageBucket: "raccolta-dati-evento-b3d9e.firebasestorage.app", messagingSenderId: "596784475930", appId: "1:596784475930:web:686f134959abc913e106a3" };
+  const SYNC_KEYS = ["rde_deviazioni_v1", "rde_fonogrammi_v1", "rde_turno_v1", "rde_profilo_v1", "rde_fono_visti", "rde_dep_fix", "rde_fono_base"];   // la rubrica NON si sincronizza
+  const DEV_ID = (() => { let d = localStorage.getItem("rde_dev_id"); if (!d) { d = Math.random().toString(36).slice(2, 10); localStorage.setItem("rde_dev_id", d); } return d; })();
+  let fbUser = null, fsdb = null, applying = false, fbReady = null, lastSync = 0;
+  const rawSetItem = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (k, v) {
+    rawSetItem.call(this, k, v);
+    if (this === localStorage && !applying && SYNC_KEYS.includes(k)) { if (fbUser) pushKV(k, v); else rawSetItem.call(localStorage, tKey(k), String(Date.now())); }
+  };
+  const tKey = (k) => "rde_t_" + k;
+  function loadFirebase() {
+    return fbReady || (fbReady = (async () => {
+      for (const f of ["firebase-app-compat.js", "firebase-auth-compat.js", "firebase-firestore-compat.js"]) await loadScript("./" + f);
+      firebase.initializeApp(FB_CONFIG);
+      fsdb = firebase.firestore();
+      try { await fsdb.enablePersistence({ synchronizeTabs: true }); } catch {}
+      firebase.auth().onAuthStateChanged((u) => { fbUser = u; updSyncUI(); if (u) avviaSync(); });
+    })());
+  }
+  function pushKV(k, v) {
+    const t = Date.now(); applying = true; rawSetItem.call(localStorage, tKey(k), String(t)); applying = false;
+    fsdb.doc("utenti/" + fbUser.uid + "/dati/" + k).set({ v: String(v), t, dev: DEV_ID }).then(okSync).catch(errSync);
+  }
+  const pulito = (d) => JSON.parse(JSON.stringify(d));
+  function pushEv(id, d) { if (!fbUser) return; fsdb.doc("utenti/" + fbUser.uid + "/eventi/" + id).set({ ...pulito(d), _del: false, _dev: DEV_ID }).then(okSync).catch(errSync); }
+  function pushDel(id) { if (!fbUser) return; fsdb.doc("utenti/" + fbUser.uid + "/eventi/" + id).set({ _del: true, modificato: new Date().toISOString(), _dev: DEV_ID }).then(okSync).catch(errSync); }
+  function okSync() { lastSync = Date.now(); updSyncUI(); }
+  function errSync(e) { console.error(e); updSyncUI("errore"); }
+  /* agganci all'archivio locale: ogni salvataggio o cancellazione va anche nel cloud */
+  function agganciaArchivio() {
+    if (db.__sync) return; db.__sync = true;
+    const wrap = (r) => ({ id: r.id, set: async (d) => { await r.set(d); pushEv(r.id, d); }, delete: async () => { await r.delete(); pushDel(r.id); } });
+    const oDoc = db.doc.bind(db); db.doc = (p) => wrap(oDoc(p));
+    const oCol = db.collection.bind(db); db.collection = (...a) => { const c = oCol(...a), od = c.doc.bind(c); c.doc = () => wrap(od()); return c; };
+    const oRep = db.replaceAll.bind(db); db.__rawReplace = oRep;
+    db.replaceAll = (all) => {
+      const before = db.all(); oRep(all);
+      for (const [id, d] of Object.entries(all)) if (!before[id] || before[id].modificato !== d.modificato) pushEv(id, d);
+      for (const id of Object.keys(before)) if (!all[id]) pushDel(id);
+    };
+  }
+  let unsub = [];
+  function avviaSync() {
+    unsub.forEach((u) => { try { u(); } catch {} }); unsub = [];
+    const uid = fbUser.uid; let primoEv = true, primoKV = true;
+    unsub.push(fsdb.collection("utenti/" + uid + "/eventi").onSnapshot((snap) => {
+      const all = db.all(); let cambiato = false; const remoti = new Set();
+      for (const ch of snap.docChanges()) {
+        if (ch.type === "removed") continue;
+        const id = ch.doc.id, d = ch.doc.data(); remoti.add(id);
+        if (d._dev === DEV_ID && !primoEv) continue;
+        const loc = all[id];
+        if (d._del) { if (loc && String(d.modificato) >= String(loc.modificato || "")) { delete all[id]; cambiato = true; } continue; }
+        if (!loc || String(d.modificato || "") > String(loc.modificato || "")) { const { _del, _dev, ...rec } = d; all[id] = rec; cambiato = true; }
+      }
+      if (primoEv) {   // al primo collegamento manda nel cloud le schede che ci sono solo su questo telefono
+        const docs = new Map(snap.docs.map((x) => [x.id, x.data()]));
+        for (const [id, d] of Object.entries(db.all())) { const r = docs.get(id); if (!r || (!r._del && String(d.modificato || "") > String(r.modificato || ""))) pushEv(id, d); }
+        primoEv = false;
+      }
+      if (cambiato) {
+        db.__rawReplace(all);
+        if (current && !dirty) { const r = all[current]; if (r) fillForm({ id: current, ...r }); else { current = null; fillForm(null); } }
+      }
+      okSync();
+    }, errSync));
+    unsub.push(fsdb.collection("utenti/" + uid + "/dati").onSnapshot((snap) => {
+      const remoti = new Map(snap.docs.map((x) => [x.id, x.data()]));
+      let cambiato = false;
+      const applica = (k, v, t) => { applying = true; rawSetItem.call(localStorage, k, v); rawSetItem.call(localStorage, tKey(k), String(t)); applying = false; cambiato = true; };
+      for (const k of SYNC_KEYS) {
+        const r = remoti.get(k), lt = +(localStorage.getItem(tKey(k)) || 0), lv = localStorage.getItem(k);
+        if (r && r.dev === DEV_ID && !primoKV) continue;
+        if (primoKV && r && lv && r.v !== lv && /^\s*\[/.test(lv) && /^\s*\[/.test(r.v)) {   // primo collegamento: unisce gli elenchi dei due telefoni
+          try { const a = JSON.parse(r.v), b = JSON.parse(lv), seen = new Set(a.map((x) => x.id || x.key)); const m = [...a, ...b.filter((x) => !seen.has(x.id || x.key))]; applica(k, JSON.stringify(m), Date.now()); pushKV(k, JSON.stringify(m)); continue; } catch {}
+        }
+        if (r && r.t > lt) {
+          applica(k, r.v, r.t);
+        } else if (primoKV && lv != null && (!r || lt > r.t)) pushKV(k, lv);
+      }
+      primoKV = false;
+      if (cambiato) { try { if (tabOra === "dev") renderDev(); if (tabOra === "fon") renderFon(); if (tabOra === "turno") renderTurno(); updTurnoBadge(); updSchedaTools(); } catch {} }
+      okSync();
+    }, errSync));
+  }
+  async function accediSync() {
+    try {
+      await loadFirebase();
+      try { const tok = await getToken(); await firebase.auth().signInWithCredential(firebase.auth.GoogleAuthProvider.credential(null, tok)); }
+      catch (e) { console.warn(e); await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+      localStorage.setItem("rde_sync_on", "1"); toast("Sincronizzazione attiva.");
+    } catch (e) { console.error(e); toast("Accesso non riuscito: riprova."); }
+  }
+  async function esciSync() { try { unsub.forEach((u) => u()); unsub = []; await firebase.auth().signOut(); } catch {} localStorage.removeItem("rde_sync_on"); fbUser = null; updSyncUI(); toast("Sincronizzazione disattivata su questo telefono."); }
+  function updSyncUI(stato) {
+    const b = $("#bSync"); if (!b) return;
+    b.classList.toggle("on", !!fbUser); b.classList.toggle("err", stato === "errore");
+    b.title = fbUser ? "Sincronizzato" + (lastSync ? " alle " + new Date(lastSync).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : "") : "Sincronizzazione non attiva";
+  }
+  function pannelloSync() {
+    const bg = document.createElement("div"); bg.className = "modal"; bg.setAttribute("role", "dialog"); bg.setAttribute("aria-modal", "true");
+    bg.innerHTML = '<div class="mbox ragbox"><h3>Sincronizzazione tra telefoni</h3><p class="sy"></p><p class="hint">Si sincronizzano: schede (con R.A.G.), deviazioni, fonogrammi, diario del turno e impostazioni. Restano solo su questo telefono: la rubrica e le foto (le foto arrivano comunque su Drive con la scheda).</p><div class="mbtns"></div></div>';
+    const p = bg.querySelector(".sy"), m = bg.querySelector(".mbtns");
+    if (fbUser) {
+      p.innerHTML = "✓ Attiva con <b></b>" + (lastSync ? "<br>Ultimo allineamento alle " + new Date(lastSync).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : "");
+      p.querySelector("b").textContent = fbUser.email || "il tuo account Google";
+      m.innerHTML = '<button type="button" class="btn" data-x="esci">Disattiva su questo telefono</button><button type="button" class="btn primary" data-x="ok">Chiudi</button>';
+    } else {
+      p.textContent = "Non attiva. Accedi con lo stesso account Google su entrambi i telefoni: da quel momento i dati restano allineati da soli, anche dopo un periodo senza rete.";
+      m.innerHTML = '<button type="button" class="btn" data-x="ok">Chiudi</button><button type="button" class="btn primary" data-x="in">Accedi con Google</button>';
+    }
+    m.querySelectorAll("[data-x]").forEach((b) => b.addEventListener("click", () => { bg.remove(); if (b.dataset.x === "in") accediSync(); if (b.dataset.x === "esci") esciSync(); }));
+    document.body.appendChild(bg);
+  }
+  {
+    const s = document.createElement("button"); s.type = "button"; s.className = "themeb sync"; s.id = "bSync"; s.textContent = "☁"; s.setAttribute("aria-label", "Sincronizzazione tra telefoni");
+    s.addEventListener("click", pannelloSync); $("#bSett").before(s);
+    agganciaArchivio(); updSyncUI();
+    if (localStorage.getItem("rde_sync_on")) loadFirebase().catch((e) => console.error(e));
+  }
   
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 })();
