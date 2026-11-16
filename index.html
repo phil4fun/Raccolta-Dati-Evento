@@ -1998,7 +1998,7 @@ async function importaRubrica(file) {
     let tables = [];
     if (/\.xlsx$/i.test(file.name)) { const S = await readXlsx(file); tables = Object.entries(S).sort(([a], [b]) => (b === "Rubrica") - (a === "Rubrica")).map(([, t]) => t); }
     else tables = [parseCSV(await file.text())];
-    let nAg = 0, nCt = 0, upd = 0;
+    let nAg = 0, nCt = 0, upd = 0, tolti = 0;
     for (const t of tables) {
       const h = (t[0] || []).map((x) => String(x).trim().toLowerCase());
       if (h.includes("matricola") && h.includes("cognome")) {          // rubrica del deposito
@@ -2014,7 +2014,7 @@ async function importaRubrica(file) {
       } else if (h.includes("first name") || h.includes("nome") || h.includes("e-mail address")) {   // CSV di Outlook
         const ix = (k) => h.indexOf(k), R = LS.get(RUB_K, []);
         const key = (c) => ((c.m || [])[0] || c.n).toLowerCase();
-        const byK = new Map(R.map((c) => [key(c), c]));
+        const byK = new Map(R.map((c) => [key(c), c])), visti = new Set();
         for (const r of t.slice(1)) {
           const g = (k) => (ix(k) >= 0 ? String(r[ix(k)] || "").trim() : "");
           const dept = g("department"), comp = g("company"), job = g("job title");
@@ -2026,13 +2026,15 @@ async function importaRubrica(file) {
           if (!tel.length && !mail.length) continue;
           const pol = /polizia roma capitale/i.test(dept);
           const c = { id: "c" + Math.random().toString(36).slice(2, 9), n, r: ruolo, rep: dept, t: tel, m: mail, cg: pol ? "" : g("last name"), nm: pol ? "" : g("first name") };
-          const old = byK.get(key(c)); if (old) { if (JSON.stringify([old.t, old.r]) !== JSON.stringify([c.t, c.r])) upd++; Object.assign(old, { ...c, id: old.id, man: old.man }); } else { R.push(c); byK.set(key(c), c); nCt++; }
+          visti.add(key(c)); const old = byK.get(key(c)); if (old) { if (JSON.stringify([old.t, old.r]) !== JSON.stringify([c.t, c.r])) upd++; Object.assign(old, { ...c, id: old.id, man: old.man }); } else { R.push(c); byK.set(key(c), c); nCt++; }
         }
-        LS.set(RUB_K, R);
+        // il CSV di Outlook è la rubrica completa: chi non c’è più viene tolto (i contatti aggiunti a mano restano)
+        const R2 = R.filter((c) => c.man || visti.has(key(c))); tolti = R.length - R2.length;
+        LS.set(RUB_K, R2);
       }
     }
     renderRub(); fillAgentiList();
-    toast("Rubrica aggiornata: " + (nCt + nAg) + " nuovi, " + upd + " aggiornati.");
+    toast("Rubrica aggiornata: " + (nCt + nAg) + " nuovi, " + upd + " aggiornati" + (tolti ? ", " + tolti + " tolti" : "") + ".");
   } catch (e) { console.error(e); toast("Non riesco a leggere questo file."); }
 }
 
