@@ -411,6 +411,20 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 #fonoBtn[hidden] { display: none; }
 .mbar.off, aside.archive[hidden], main[hidden] { display: none !important; }
 @media (max-width: 600px) { .nexts { grid-template-columns: 1fr; } .next + .next { border-left: 0; border-top: 1px solid var(--line); } }
+
+/* ===== pulsanti: bianco con scritta amaranto, al tocco il contrario ===== */
+.btn, .btn.primary, .tab, .fchip, .chip, .chip.other, .chip.ok, .now, .gps, .addl, .carri .add, .yn button, .fotoadd, .lnk, .mbar .btn, #mReset, .mbtns .btn, .rag-btn, .call, .mail, .dephint .chip, .dephint .chip.other, .dephint .chip.ok {
+  background: #ffffff !important; color: #910021 !important; border: 1.5px solid #910021 !important; border-style: solid !important;
+}
+.btn:active, .tab:active, .fchip:active, .chip:active, .now:active, .gps:active, .addl:active, .carri .add:active, .yn button:active, .fotoadd:active, .lnk:active, .call:active, .mail:active,
+.tab[aria-selected="true"], .fchip[aria-pressed="true"], .yn button[aria-pressed="true"] {
+  background: #910021 !important; color: #ffffff !important;
+}
+@media (hover: hover) { .btn:hover:not(:disabled), .tab:hover, .fchip:hover, .chip:hover, .now:hover, .addl:hover, .call:hover, .mail:hover { background: #fbeef1 !important; } .tab[aria-selected="true"]:hover, .fchip[aria-pressed="true"]:hover, .yn button[aria-pressed="true"]:hover { background: #910021 !important; } }
+.btn:disabled { opacity: .45; }
+.tab .nb { background: var(--gold); color: #3b2a00; }
+@media (max-width: 600px) { #exportActions { grid-template-columns: 1fr 1fr !important; } #bMailFono { grid-column: 1 / -1; } }
+@media (min-width: 601px) { #exportActions { flex-wrap: wrap; } }
 </style>
 </head>
 <body>
@@ -1691,7 +1705,7 @@ function buildTools() {
   <section data-p="dev" hidden><div class="card"><div class="ch"><h2>Archivio deviazioni</h2><button type="button" class="btn primary" id="devNew">+ Nuova</button></div>
     <div class="pad"><input type="search" class="search" id="qd" placeholder="Cerca linea, via, capolinea… (es. 338 Val d’Aosta)"></div>
     <p class="pad muted" style="padding-top:0">Ogni deviazione scritta in una scheda viene salvata qui da sola. La riusi con un tocco.</p><div id="devlist"></div></div></section>
-  <section data-p="fon" hidden><div class="card"><div class="ch"><h2>Registro fonogrammi</h2></div>
+  <section data-p="fon" hidden><div class="card"><div class="ch"><h2>Registro fonogrammi</h2><button type="button" class="btn" id="fonNew">+ Registra</button></div>
     <div class="nexts" id="nexts"></div><div id="fonlist"></div></div></section>
   <section data-p="turno" hidden><div class="card"><div class="ch"><h2>Diario del turno</h2><span class="hint" id="turnoInfo"></span></div>
     <div class="turno" id="turnoBar"></div>
@@ -1708,6 +1722,7 @@ function buildTools() {
   // deviazioni
   $("#qd").addEventListener("input", renderDev);
   $("#devNew").addEventListener("click", async () => { const v = await modulo("Nuova deviazione", [{ l: "Linea", v: readForm().campi.linea || "" }, { l: "Punto bloccato", ph: "via …, altezza …" }, { l: "Percorso", area: true }]); if (!v || !v[2]) return; salvaDeviazione(v[0], v[1], v[2]); renderDev(); });
+  $("#fonNew").addEventListener("click", async () => { const v = await modulo("Registra fonogramma", [{ l: "Numero", ph: "es. 48A" }, { l: "Oggetto", ph: "es. Pensilina danneggiata – fermata 73752" }], "Registra"); if (!v || !v[0]) return; const F = LS.get(FON_K, []); F.push({ id: "f" + Date.now().toString(36), num: v[0].toUpperCase().replace(/\s+/g, ""), l: "", data: todayISO(), ora: oraAdesso(), ogg: v[1] }); LS.set(FON_K, F); addTurno("fo", "Fonogramma " + v[0].toUpperCase(), v[1]); renderFon(); });
   // turno
   $("#addNota").addEventListener("click", () => { const v = $("#nota").value.trim(); if (!v) return; addTurno("no", v, "nota"); $("#nota").value = ""; renderTurno(); });
   $("#nota").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("#addNota").click(); } });
@@ -1775,23 +1790,19 @@ async function assegnaFono() {
   toast("Fonogramma " + n + L + " assegnato e registrato.");
 }
 function renderFon() {
-  const nb = $("#nexts"); nb.innerHTML = "";
-  for (const [L, lab] of [["A", "Autobus"], ["F", "Filobus"]]) {
-    const n = prossimoFono(L), d = document.createElement("div"); d.className = "next";
-    d.innerHTML = '<div><div class="muted">' + lab + ' · prossimo</div><div class="big">' + n + L + '</div></div><div class="nb2"><button type="button" class="btn primary" data-r>+ Registra ' + n + L + ' ora</button><button type="button" class="btn" data-s>Cambia numero</button></div>';
-    d.querySelector("[data-r]").addEventListener("click", async () => { const v = await modulo("Registra fonogramma " + n + L, [{ l: "Oggetto", ph: "es. Ingombro stradale – linea 338" }], "Registra"); if (!v) return; const F = LS.get(FON_K, []); F.push({ id: "f" + Date.now().toString(36), l: L, num: n, data: todayISO(), ora: oraAdesso(), ogg: v[0], rec: "" }); LS.set(FON_K, F); addTurno("fo", "Fonogramma " + n + L, v[0]); renderFon(); });
-    d.querySelector("[data-s]").addEventListener("click", async () => { const v = await modulo("Prossimo fonogramma " + lab.toLowerCase(), [{ l: "Numero", v: String(n), mode: "numeric" }], "Imposta"); if (!v || !/^\d+$/.test(v[0])) return; const b = LS.get("rde_fono_base", {}); b[L] = +v[0]; LS.set("rde_fono_base", b); const F = LS.get(FON_K, []).filter((f) => !(f.l === L && +f.num >= +v[0])); LS.set(FON_K, F); renderFon(); updFonoBtn(); });
-    nb.appendChild(d);
-  }
+  const nb = $("#nexts"); nb.innerHTML = '<p class="pad muted" style="margin:0">Il numero lo comunica il fonogrammista: scrivilo nella riga Fonogramma della scheda e comparirà qui. Per uno senza scheda usa «+ Registra».</p>';
   const box = $("#fonlist"); box.innerHTML = "";
-  const F = LS.get(FON_K, []).slice().sort((a, b) => (b.data + b.ora).localeCompare(a.data + a.ora));
-  if (!F.length) { box.innerHTML = '<p class="pad muted">Nessun fonogramma registrato. Usa «Assegna» nella riga Fonogramma della scheda o «Registra» qui sopra.</p>'; return; }
-  for (const f of F) {
+  const E = records.filter((r) => String(r.campi.fonogramma || "").trim()).map((r) => ({ num: r.campi.fonogramma.trim().toUpperCase(), data: r.data, ora: r.campi.ora_evento || "", ogg: [r.campi.tipo_evento, r.campi.linea && "linea " + r.campi.linea, luogoPulito(r.campi).split(",")[0]].filter(Boolean).join(" – "), rec: r.id }))
+    .concat(LS.get(FON_K, []).map((f) => ({ num: f.num + (f.l || ""), data: f.data, ora: f.ora, ogg: f.ogg, id: f.id })))
+    .sort((x, y) => (y.data + y.ora).localeCompare(x.data + x.ora));
+  if (!E.length) { box.innerHTML = '<p class="pad muted">Nessun fonogramma ancora.</p>'; return; }
+  for (const f of E) {
     const el = document.createElement("div"); el.className = "fg";
-    el.innerHTML = '<span class="n' + (f.l === "F" ? " f" : "") + '">' + f.num + f.l + '</span><span class="t"><b></b><span class="o">' + esc(itDate(f.data).slice(0, 5) + " · " + f.ora) + "</span></span><span></span>";
-    el.querySelector("b").textContent = f.ogg || "—";
+    el.innerHTML = '<span class="n' + (/F$/.test(f.num) ? " f" : "") + '"></span><span class="t"><b></b><span class="o">' + esc(itDate(f.data).slice(0, 5) + (f.ora ? " · " + f.ora : "")) + "</span></span><span></span>";
+    el.querySelector(".n").textContent = f.num; el.querySelector("b").textContent = f.ogg || "—";
     const r = f.rec && records.find((x) => x.id === f.rec);
     if (r) { const a = document.createElement("button"); a.type = "button"; a.className = "lnk"; a.textContent = "Scheda"; a.addEventListener("click", () => { current = r.id; dirty = false; fillForm(r); vai("scheda"); }); el.lastChild.appendChild(a); }
+    else if (f.id) { const a = document.createElement("button"); a.type = "button"; a.className = "lnk"; a.textContent = "×"; a.setAttribute("aria-label", "Elimina"); a.addEventListener("click", () => { LS.set(FON_K, LS.get(FON_K, []).filter((x) => x.id !== f.id)); renderFon(); }); el.lastChild.appendChild(a); }
     box.appendChild(el);
   }
 }
@@ -1967,6 +1978,33 @@ async function importaRubrica(file) {
   } catch (e) { console.error(e); toast("Non riesco a leggere questo file."); }
 }
 
+/* ---------- scheda via email a fonogrammi@atac.roma.it ---------- */
+const FONO_MAIL = "fonogrammi@atac.roma.it";
+function testoEmailFono(rec) {
+  const c = rec.campi, P = getProfile(), L = [];
+  L.push("Buongiorno,", "si comunicano i dati dell’evento per la redazione del fonogramma.", "");
+  L.push("SCHEDA EVENTO" + (c.progressivo ? " " + c.progressivo : ""));
+  L.push("Data: " + itDate(rec.data) + (c.ora_evento ? "   Ora: " + c.ora_evento : ""));
+  for (const f of FIELDS) { if (["ora_evento", "evento", "fonogramma"].includes(f.k)) continue; const v = disp(rec, f); if (v) L.push(f.l + ": " + v.replace(/\n+/g, " / ")); }
+  if (c.evento) L.push("", "Descrizione:", c.evento);
+  L.push("", "Cordiali saluti", [P.nome, P.matricola && "matr. " + P.matricola].filter(Boolean).join(" – ") || "", "Controllo di Esercizio – Settore " + (P.settore || "Nord"));
+  return L.join("\n");
+}
+async function emailFonogrammi() {
+  const rec = readForm();
+  if (isBlank(rec)) { toast("La scheda è vuota."); return; }
+  if (!(await checkBeforeSend(rec, "inviare"))) return;
+  if (dirty || !current) await save(false);
+  const c = rec.campi;
+  const subj = "Evento " + itDate(rec.data) + (c.ora_evento ? " ore " + c.ora_evento : "") + " – " + [c.tipo_evento, c.linea && "linea " + c.linea, c.vettura && "vett. " + c.vettura].filter(Boolean).join(" – ");
+  let body = testoEmailFono(rec);
+  if (body.length > 1800) body = body.slice(0, 1780) + "\n[…]";
+  const href = "mailto:" + FONO_MAIL + "?subject=" + encodeURIComponent(subj) + "&body=" + encodeURIComponent(body);
+  const a = document.createElement("a"); a.href = href; a.target = "_top"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove();
+  addTurno("no", "Scheda inviata ai fonogrammi", subj.replace(/^Evento /, ""));
+  toast("Si apre l’email: controlla e premi Invia. Poi scrivi qui il numero del fonogramma.");
+}
+
 /* ---------- chiamate dalla scheda ---------- */
 function apriPolizia(g) {
   const pol = polizie().sort((a, b) => a.n.localeCompare(b.n, "it", { numeric: true }));
@@ -2005,15 +2043,18 @@ function enhance3() {
   const syncOE = () => { const a = cercaAgente(); if (a) { if (!$("#f_matricola").value.trim()) { $("#f_matricola").value = a.m; onEdit(); } if (!$("#f_oe").value.trim()) { $("#f_oe").value = agName(a); onEdit(); } } mostraChiamaOE(); };
   $("#f_oe").addEventListener("input", syncOE); $("#f_oe").addEventListener("change", syncOE); $("#f_matricola").addEventListener("input", syncOE);
   fillAgentiList();
+  // email ai fonogrammi
+  const mb = document.createElement("button"); mb.type = "button"; mb.className = "btn"; mb.id = "bMailFono"; mb.textContent = "✉ Invia ai fonogrammi";
+  mb.addEventListener("click", emailFonogrammi); $("#exportActions").prepend(mb);
   // Deviazioni: dall'archivio
   const dr = $("#row_deviazioni > :not(label)"), db2 = document.createElement("div"); db2.className = "callrow";
   db2.innerHTML = '<button type="button" class="btn" id="devPick">📚 Dall’archivio deviazioni</button><span class="tagc" id="devTag"></span>';
   dr.appendChild(db2);
   $("#devPick").addEventListener("click", () => { $("#qd").value = readForm().campi.linea || ""; vai("dev"); });
   // Fonogramma: assegna il prossimo numero
-  const fr = $("#f_fonogramma").parentElement, fb = document.createElement("button"); fb.type = "button"; fb.className = "now"; fb.id = "fonoBtn"; fb.addEventListener("click", assegnaFono);
-  fr.appendChild(fb);
-  $("#f_fonogramma").addEventListener("input", updFonoBtn);
+  $("#f_fonogramma").placeholder = "Numero comunicato dal fonogrammista (es. 47A)";
+  $("#f_fonogramma").autocapitalize = "characters";
+  $("#f_fonogramma").addEventListener("blur", () => { const el = $("#f_fonogramma"), v = el.value.trim().toUpperCase().replace(/\s+/g, ""); if (v !== el.value) { el.value = v; onEdit(); } });
 }
 /* aggiornamenti quando cambia la scheda */
 function updSchedaTools() {
@@ -2025,6 +2066,7 @@ const _fillForm3 = fillForm;
 fillForm = function (rec) { _fillForm3(rec); setTimeout(updSchedaTools); };
 const _onEdit3 = onEdit;
 onEdit = function () { _onEdit3(); clearTimeout(onEdit.t3); onEdit.t3 = setTimeout(updSchedaTools, 300); };
+const fonoVisti = LS.get("rde_fono_visti", {});
 const _save3 = save;
 save = async function (manual) {
   const wasNew = !current, before = readForm();
@@ -2032,6 +2074,8 @@ save = async function (manual) {
   if (current) {
     const c = before.campi;
     if (c.deviazioni_sn === "SI" && String(c.deviazioni || "").trim().length > 15) salvaDeviazione(c.linea, luogoPulito(c).split(",")[0], c.deviazioni, current, before.data);
+    const prevF = (fonoVisti[current] || ""), nowF = String(c.fonogramma || "").trim().toUpperCase();
+    if (nowF && nowF !== prevF) { fonoVisti[current] = nowF; LS.set("rde_fono_visti", fonoVisti); addTurno("fo", "Fonogramma " + nowF, [c.tipo_evento, c.linea && "linea " + c.linea].filter(Boolean).join(" · ")); }
     if (wasNew && !isBlank(before)) addTurno("ev", [c.tipo_evento || "Evento", c.vettura && "vett. " + c.vettura, c.linea && "linea " + c.linea].filter(Boolean).join(" – "), [luogoPulito(c).split(",")[0], c.progressivo].filter(Boolean).join(" · "));
   }
   return res;
