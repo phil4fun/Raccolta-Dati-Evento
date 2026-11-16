@@ -350,6 +350,67 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 .rgrid li { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px dashed var(--line); }
 .rtot { display: flex; gap: 16px; padding: 8px 12px 10px; margin: 0; font-size: 13.5px; }
 @media (max-width: 600px) { .ragf { grid-template-columns: 1fr; } .rgrid { grid-template-columns: 1fr; } }
+/* ===== schede in alto e strumenti ===== */
+.tabs { grid-column: 1 / -1; display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 4px; margin: -6px 0 -8px; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { flex: 0 0 auto; border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 999px; padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; min-height: 40px; }
+.tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tab .nb { background: var(--gold); color: #3b2a00; border-radius: 999px; padding: 0 6px; font-size: 11.5px; margin-left: 4px; }
+.tab .nb[hidden] { display: none; }
+.tools { grid-column: 1 / -1; --ink: #231f20; --muted: #6f6567; --line: #ecdfe1; --band: #fbf5f6; --accent: #910021; --accent-soft: #f7e4e8; --label: #6d0019; color: var(--ink); }
+.tools[hidden], .tools > section[hidden] { display: none; }
+.tools .card { max-width: 760px; margin: 0 auto 12px; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.tools .ch { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-left: 4px solid var(--accent); border-bottom: 1px solid var(--line); }
+.tools .ch h2 { font-family: var(--display); font-size: 18px; margin: 0; color: var(--label); flex: 1; }
+.tools .hint { font-size: 12.5px; color: var(--muted); }
+.tools .search { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 44px; font-size: 16px; background: #fff; }
+.tools .pad { padding: 12px 14px; } .tools .muted { color: var(--muted); font-size: 13px; }
+.dev { border-top: 1px solid var(--line); padding: 12px 14px; display: grid; gap: 6px; }
+.dev .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.lin { background: var(--accent); color: #fff; border-radius: 6px; padding: 2px 8px; font-weight: 700; font-size: 13px; }
+.dev p { margin: 0; font-size: 14px; line-height: 1.45; background: var(--band); border-radius: 8px; padding: 8px 10px; white-space: pre-wrap; }
+.dev .acts { display: flex; gap: 8px; flex-wrap: wrap; } .dev .acts .btn { min-height: 36px; padding: 6px 10px; font-size: 13px; }
+.nexts { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--line); }
+.next { display: grid; gap: 8px; padding: 14px; } .next + .next { border-left: 1px solid var(--line); }
+.next .big { font-family: var(--display); font-size: 38px; font-weight: 700; color: var(--accent); line-height: 1; }
+.next .nb2 { display: flex; gap: 6px; flex-wrap: wrap; } .next .btn { min-height: 36px; padding: 6px 10px; font-size: 13px; }
+.fg { display: grid; grid-template-columns: 64px 1fr auto; gap: 4px 10px; align-items: center; border-top: 1px solid var(--line); padding: 10px 14px; }
+.fg .n { font-weight: 700; color: #fff; background: var(--accent); border-radius: 8px; text-align: center; padding: 6px 0; } .fg .n.f { background: #2f6d8c; }
+.fg .o { font-size: 12.5px; color: var(--muted); display: block; } .fg .t b { display: block; font-size: 14px; }
+.lnk { font-size: 12.5px; color: var(--accent); font-weight: 700; border: 1px solid var(--accent-soft); background: var(--accent-soft); border-radius: 999px; padding: 4px 10px; cursor: pointer; }
+.turno { display: flex; align-items: center; gap: 10px; padding: 12px 14px; flex-wrap: wrap; }
+.pill { background: #d8f0df; color: #1f5a34; border-radius: 999px; padding: 4px 10px; font-weight: 700; font-size: 13px; }
+.tl { list-style: none; margin: 0; padding: 6px 14px 12px; }
+.tl li { display: grid; grid-template-columns: 52px 18px 1fr; gap: 6px; align-items: start; padding: 6px 0; }
+.tl .h { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--label); }
+.tl .d { width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; background: #9aa; }
+.tl .ev .d { background: var(--accent); } .tl .fo .d { background: var(--gold); } .tl .st .d { background: var(--ok); }
+.tl .x { font-size: 14px; } .tl .x small { display: block; color: var(--muted); font-size: 12.5px; }
+.note { display: flex; gap: 8px; padding: 0 14px 6px; } .note[hidden] { display: none; }
+.note input { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-height: 42px; font-size: 16px; }
+.riepbox { border-top: 1px solid var(--line); } .riepbox[hidden] { display: none; }
+.riepbox pre, .stor pre { white-space: pre-wrap; background: var(--band); border-radius: 8px; padding: 10px; font-family: var(--body); font-size: 13.5px; margin: 8px 0; }
+.rowbtn { display: flex; gap: 8px; flex-wrap: wrap; }
+.stor { border-top: 1px solid var(--line); padding: 8px 14px; } .stor summary { cursor: pointer; font-weight: 700; color: var(--label); }
+.tools .filt { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 14px 10px; }
+.tools .grp { padding: 8px 14px 4px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--band); border-top: 1px solid var(--line); }
+.ct { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; padding: 9px 14px; border-top: 1px solid var(--line); background: #fff; color: #231f20; }
+.ct .nm { font-weight: 700; display: block; } .ct .rl { font-size: 12.5px; color: #6f6567; display: block; }
+.ct .ca { display: flex; gap: 6px; } .ct.sel { background: #fdf6f7; border-left: 4px solid #910021; }
+.call, .mail { display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; text-decoration: none; font-size: 18px; border: 1.5px solid #910021; cursor: pointer; }
+.call { background: #910021; color: #fff; } .mail { background: #fff; color: #910021; }
+.rubimp { border-top: 1px solid var(--line); background: var(--band); } .rubimp p { margin: 6px 0 10px; }
+.rubimp label.btn { display: inline-flex; align-items: center; cursor: pointer; }
+.psh { position: fixed; inset: 0; background: rgba(30, 8, 12, .45); display: flex; align-items: flex-end; justify-content: center; z-index: 60; }
+.psh .box { background: #fff; width: min(560px, 100%); border-radius: 14px 14px 0 0; max-height: 80vh; overflow: auto; padding-bottom: env(safe-area-inset-bottom); }
+.psh h3 { margin: 0; padding: 14px; font-family: var(--display); color: #6d0019; border-bottom: 1px solid #ecdfe1; display: flex; justify-content: space-between; align-items: center; }
+.callrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 6px 12px 10px; }
+.callrow a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.tagc { font-size: 12px; font-weight: 700; background: var(--gold); color: #3b2a00; border-radius: 4px; padding: 1px 6px; }
+.tagc:empty { display: none; }
+#fonoBtn[hidden] { display: none; }
+.mbar.off, aside.archive[hidden], main[hidden] { display: none !important; }
+@media (max-width: 600px) { .nexts { grid-template-columns: 1fr; } .next + .next { border-left: 0; border-top: 1px solid var(--line); } }
 </style>
 </head>
 <body>
@@ -1582,9 +1643,403 @@ save = async function (manual) { const r = _readForm2(); if (!curProg && !(isBla
 const _renderList2 = renderList;
 renderList = function () { _renderList2(); riepilogoMese(); };
 
+/* ===================== Deviazioni, Fonogrammi, Turno, Rubrica ===================== */
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { toast("Memoria del telefono piena: fai un Backup e svuota l’archivio."); return false; } },
+};
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const telHref = (n) => "tel:" + String(n).replace(/[^\d+]/g, "");
+const oraAdesso = () => { const d = new Date(); return pad2(d.getHours()) + ":" + pad2(d.getMinutes()); };
+const tc = (x) => String(x || "").toLowerCase().replace(/(^|[\s'’-])\S/g, (y) => y.toUpperCase());
+async function condividiTesto(text, title) {
+  if (navigator.share && matchMedia("(pointer: coarse)").matches) { try { await navigator.share({ text, title }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+  try { await navigator.clipboard.writeText(text); toast("Testo copiato."); } catch { ask(title || "Testo", "Copia il testo qui sotto.", [["Chiudi", false]], text); }
+}
+function modulo(title, fields, okLabel) {   // piccola finestra con campi, restituisce i valori o null
+  return new Promise((ok) => {
+    const bg = document.createElement("div"); bg.className = "modal"; bg.setAttribute("role", "dialog"); bg.setAttribute("aria-modal", "true");
+    bg.innerHTML = '<div class="mbox ragbox"><h3>' + esc(title) + "</h3>" + fields.map((f, i) =>
+      '<div class="ragf' + (f.area ? " col" : "") + '"><label for="mf' + i + '">' + esc(f.l) + "</label>" + (f.area ? '<textarea id="mf' + i + '" rows="5"></textarea>' : '<input id="mf' + i + '" type="' + (f.type || "text") + '"' + (f.mode ? ' inputmode="' + f.mode + '"' : "") + ">") + "</div>").join("") +
+      '<div class="mbtns"><button type="button" class="btn" data-x="0">Annulla</button><button type="button" class="btn primary" data-x="1">' + esc(okLabel || "Salva") + "</button></div></div>";
+    document.body.appendChild(bg);
+    fields.forEach((f, i) => { const el = bg.querySelector("#mf" + i); el.value = f.v || ""; if (f.ph) el.placeholder = f.ph; });
+    bg.querySelectorAll("[data-x]").forEach((b) => b.addEventListener("click", () => { const vals = b.dataset.x === "1" ? fields.map((f, i) => bg.querySelector("#mf" + i).value.trim()) : null; bg.remove(); ok(vals); }));
+    setTimeout(() => bg.querySelector("#mf0").focus(), 50);
+  });
+}
+
+/* ---------- navigazione ---------- */
+const TABS = [["scheda", "Scheda"], ["dev", "Deviazioni"], ["fon", "Fonogrammi"], ["turno", "Turno"], ["rub", "Rubrica"]];
+let tabOra = "scheda";
+function vai(t) {
+  tabOra = t;
+  document.querySelectorAll(".tab").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.t === t)));
+  document.querySelectorAll(".tools > section").forEach((s) => (s.hidden = s.dataset.p !== t));
+  const sch = t === "scheda";
+  $("main").hidden = !sch; $("aside.archive").hidden = !sch; $(".tools").hidden = sch; $(".mbar").classList.toggle("off", !sch);
+  if (t === "dev") renderDev(); if (t === "fon") renderFon(); if (t === "turno") renderTurno(); if (t === "rub") renderRub();
+  window.scrollTo({ top: 0 });
+}
+function buildTools() {
+  const nav = document.createElement("nav"); nav.className = "tabs"; nav.setAttribute("role", "tablist"); nav.setAttribute("aria-label", "Sezioni");
+  nav.innerHTML = TABS.map(([k, l]) => '<button type="button" class="tab" role="tab" data-t="' + k + '">' + l + (k === "turno" ? ' <span class="nb" id="turnoBadge" hidden>in corso</span>' : "") + "</button>").join("");
+  $("header.top").after(nav);
+  nav.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => vai(b.dataset.t)));
+  const box = document.createElement("div"); box.className = "tools"; box.hidden = true;
+  box.innerHTML = `
+  <section data-p="dev" hidden><div class="card"><div class="ch"><h2>Archivio deviazioni</h2><button type="button" class="btn primary" id="devNew">+ Nuova</button></div>
+    <div class="pad"><input type="search" class="search" id="qd" placeholder="Cerca linea, via, capolinea… (es. 338 Val d’Aosta)"></div>
+    <p class="pad muted" style="padding-top:0">Ogni deviazione scritta in una scheda viene salvata qui da sola. La riusi con un tocco.</p><div id="devlist"></div></div></section>
+  <section data-p="fon" hidden><div class="card"><div class="ch"><h2>Registro fonogrammi</h2></div>
+    <div class="nexts" id="nexts"></div><div id="fonlist"></div></div></section>
+  <section data-p="turno" hidden><div class="card"><div class="ch"><h2>Diario del turno</h2><span class="hint" id="turnoInfo"></span></div>
+    <div class="turno" id="turnoBar"></div>
+    <div class="note" id="notaBox"><input id="nota" placeholder="Nota veloce… (es. controllo capolinea Vescovio)"><button type="button" class="btn primary" id="addNota">+ Nota</button></div>
+    <ul class="tl" id="tl"></ul>
+    <div class="pad riepbox" id="riepBox"><b>Riepilogo del turno</b><pre id="riepT"></pre><div class="rowbtn"><button type="button" class="btn primary" id="riepShare">Condividi</button><button type="button" class="btn" id="riepCopy">Copia</button></div></div>
+    <div id="storico"></div></div></section>
+  <section data-p="rub" hidden><div class="card"><div class="ch"><h2>Rubrica operativa</h2><button type="button" class="btn" id="rubAdd">+ Contatto</button></div>
+    <div class="pad"><input type="search" class="search" id="qr" placeholder="Cerca nome, matricola, ruolo, gruppo…"></div>
+    <div class="filt" id="rfilt"></div><div id="rublist"></div>
+    <div class="pad rubimp"><b>Aggiorna la rubrica</b><p class="muted">Carica il file esportato da Outlook (CSV) o l’Excel della rubrica del deposito: l’app aggiunge i nuovi e aggiorna i numeri cambiati. I contatti restano solo su questo telefono.</p>
+    <label class="btn primary">⟳ Carica file rubrica<input type="file" id="rubFile" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></label> <span class="muted" id="rubStat"></span></div></div></section>`;
+  nav.after(box);
+  // deviazioni
+  $("#qd").addEventListener("input", renderDev);
+  $("#devNew").addEventListener("click", async () => { const v = await modulo("Nuova deviazione", [{ l: "Linea", v: readForm().campi.linea || "" }, { l: "Punto bloccato", ph: "via …, altezza …" }, { l: "Percorso", area: true }]); if (!v || !v[2]) return; salvaDeviazione(v[0], v[1], v[2]); renderDev(); });
+  // turno
+  $("#addNota").addEventListener("click", () => { const v = $("#nota").value.trim(); if (!v) return; addTurno("no", v, "nota"); $("#nota").value = ""; renderTurno(); });
+  $("#nota").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("#addNota").click(); } });
+  $("#riepShare").addEventListener("click", () => condividiTesto(riepTurno(), "Riepilogo turno"));
+  $("#riepCopy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(riepTurno()); toast("Riepilogo copiato."); } catch { ask("Riepilogo", "Copia il testo qui sotto.", [["Chiudi", false]], riepTurno()); } });
+  // rubrica
+  $("#qr").addEventListener("input", renderRub);
+  $("#rubFile").addEventListener("change", async (e) => { const f = (e.target.files || [])[0]; e.target.value = ""; if (f) importaRubrica(f); });
+  $("#rubAdd").addEventListener("click", async () => { const v = await modulo("Nuovo contatto", [{ l: "Nome", ph: "Nome Cognome o ufficio" }, { l: "Ruolo / reparto", ph: "es. ADE Nord, Centrale Operativa" }, { l: "Telefono", type: "tel" }, { l: "Email", type: "email" }]); if (!v || !v[0]) return; const R = LS.get(RUB_K, []); R.push({ id: "m" + Date.now(), n: v[0], r: v[1], t: v[2] ? [v[2]] : [], m: v[3] ? [v[3]] : [], man: 1 }); LS.set(RUB_K, R); renderRub(); });
+  updTurnoBadge();
+}
+
+/* ---------- deviazioni ---------- */
+const DEV_K = "rde_deviazioni_v1";
+const normP = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9àèéìòù]+/g, " ").trim();
+function salvaDeviazione(linea, dove, percorso, recId, data) {
+  percorso = String(percorso || "").trim(); if (!percorso) return;
+  const D = LS.get(DEV_K, []), key = String(linea || "").toUpperCase() + "|" + normP(percorso);
+  let d = D.find((x) => x.key === key);
+  if (!d) { d = { id: "d" + Date.now().toString(36), key, l: String(linea || "").toUpperCase(), dove: dove || "", p: percorso, recs: [], ultimo: "" }; D.push(d); }
+  if (recId && !d.recs.includes(recId)) d.recs.push(recId);
+  if (dove && !d.dove) d.dove = dove;
+  d.ultimo = data || todayISO();
+  LS.set(DEV_K, D);
+}
+function renderDev() {
+  const q = normP($("#qd").value), box = $("#devlist"); box.innerHTML = "";
+  const D = LS.get(DEV_K, []).filter((d) => !q || q.split(" ").every((w) => normP(d.l + " " + d.dove + " " + d.p).includes(w))).sort((a, b) => String(b.ultimo).localeCompare(String(a.ultimo)));
+  if (!D.length) { box.innerHTML = '<p class="pad muted">' + (q ? "Nessuna deviazione trovata." : "Ancora nessuna deviazione: compila il campo Deviazioni in una scheda e comparirà qui.") + "</p>"; return; }
+  for (const d of D) {
+    const el = document.createElement("div"); el.className = "dev";
+    el.innerHTML = '<div class="top">' + (d.l ? '<span class="lin">' + esc(d.l) + "</span>" : "") + "<b>" + esc(d.dove || "Deviazione") + '</b></div><p></p><div class="top muted">Usata ' + Math.max(1, d.recs.length) + (Math.max(1, d.recs.length) === 1 ? " volta" : " volte") + " · ultima " + esc(itDate(d.ultimo)) + '</div><div class="acts"><button type="button" class="btn primary" data-a="usa">Usa nella scheda</button><button type="button" class="btn" data-a="cond">Condividi</button><button type="button" class="btn" data-a="mod">Modifica</button><button type="button" class="btn" data-a="del">Elimina</button></div>';
+    el.querySelector("p").textContent = d.p;
+    el.querySelector('[data-a="usa"]').addEventListener("click", () => { setYN("deviazioni", "SI"); $("#f_deviazioni").value = d.p; onEdit(); vai("scheda"); $("#row_deviazioni").scrollIntoView({ block: "center" }); toast("Deviazione inserita nella scheda."); });
+    el.querySelector('[data-a="cond"]').addEventListener("click", () => condividiTesto("Deviazione linea " + d.l + (d.dove ? " (" + d.dove + ")" : "") + ": " + d.p, "Deviazione"));
+    el.querySelector('[data-a="mod"]').addEventListener("click", async () => { const v = await modulo("Modifica deviazione", [{ l: "Linea", v: d.l }, { l: "Punto bloccato", v: d.dove }, { l: "Percorso", v: d.p, area: true }]); if (!v) return; const D2 = LS.get(DEV_K, []); const x = D2.find((y) => y.id === d.id); Object.assign(x, { l: v[0].toUpperCase(), dove: v[1], p: v[2], key: v[0].toUpperCase() + "|" + normP(v[2]) }); LS.set(DEV_K, D2); renderDev(); });
+    el.querySelector('[data-a="del"]').addEventListener("click", async () => { if (!(await ask("Eliminare la deviazione?", "Verrà tolta dall’archivio delle deviazioni. Le schede non cambiano.", [["Annulla", false], ["Elimina", true, true]]))) return; LS.set(DEV_K, LS.get(DEV_K, []).filter((y) => y.id !== d.id)); renderDev(); });
+    box.appendChild(el);
+  }
+}
+function devPerLinea(l) { l = String(l || "").toUpperCase(); return l ? LS.get(DEV_K, []).filter((d) => d.l === l).length : 0; }
+
+/* ---------- fonogrammi ---------- */
+const FON_K = "rde_fonogrammi_v1";
+const lettera = (c) => (String(c.linea || "").trim() === "90" ? "F" : "A");   // A autobus, F filobus (linea 90)
+function prossimoFono(L) {
+  let max = 0;
+  for (const f of LS.get(FON_K, [])) if (f.l === L) max = Math.max(max, +f.num || 0);
+  for (const r of records) { const m = String(r.campi.fonogramma || "").trim().match(/^(\d+)\s*([AF])$/i); if (m && m[2].toUpperCase() === L) max = Math.max(max, +m[1]); }
+  const base = LS.get("rde_fono_base", {}); if (base[L]) max = Math.max(max, +base[L] - 1);
+  return max + 1;
+}
+function registraFono(L, num, rec) {
+  const F = LS.get(FON_K, []);
+  F.push({ id: "f" + Date.now().toString(36), l: L, num, data: todayISO(), ora: oraAdesso(), ogg: rec ? [rec.campi.tipo_evento, rec.campi.linea && "linea " + rec.campi.linea, luogoPulito(rec.campi).split(",")[0]].filter(Boolean).join(" – ") : "", rec: rec ? current : "" });
+  LS.set(FON_K, F);
+  addTurno("fo", "Fonogramma " + num + L, rec ? [rec.campi.tipo_evento, rec.campi.linea && "linea " + rec.campi.linea].filter(Boolean).join(" · ") : "");
+}
+async function assegnaFono() {
+  const rec = readForm(), L = lettera(rec.campi);
+  if ($("#f_fonogramma").value.trim()) { if (!(await ask("Sostituire il fonogramma?", "La scheda ha già il fonogramma " + $("#f_fonogramma").value.trim() + ".", [["Annulla", false], ["Sostituisci", true, true]]))) return; }
+  const n = prossimoFono(L);
+  if (!current) await save(false);
+  $("#f_fonogramma").value = n + L; onEdit(); registraFono(L, n, readForm()); await save(false); updFonoBtn();
+  toast("Fonogramma " + n + L + " assegnato e registrato.");
+}
+function renderFon() {
+  const nb = $("#nexts"); nb.innerHTML = "";
+  for (const [L, lab] of [["A", "Autobus"], ["F", "Filobus"]]) {
+    const n = prossimoFono(L), d = document.createElement("div"); d.className = "next";
+    d.innerHTML = '<div><div class="muted">' + lab + ' · prossimo</div><div class="big">' + n + L + '</div></div><div class="nb2"><button type="button" class="btn primary" data-r>+ Registra ' + n + L + ' ora</button><button type="button" class="btn" data-s>Cambia numero</button></div>';
+    d.querySelector("[data-r]").addEventListener("click", async () => { const v = await modulo("Registra fonogramma " + n + L, [{ l: "Oggetto", ph: "es. Ingombro stradale – linea 338" }], "Registra"); if (!v) return; const F = LS.get(FON_K, []); F.push({ id: "f" + Date.now().toString(36), l: L, num: n, data: todayISO(), ora: oraAdesso(), ogg: v[0], rec: "" }); LS.set(FON_K, F); addTurno("fo", "Fonogramma " + n + L, v[0]); renderFon(); });
+    d.querySelector("[data-s]").addEventListener("click", async () => { const v = await modulo("Prossimo fonogramma " + lab.toLowerCase(), [{ l: "Numero", v: String(n), mode: "numeric" }], "Imposta"); if (!v || !/^\d+$/.test(v[0])) return; const b = LS.get("rde_fono_base", {}); b[L] = +v[0]; LS.set("rde_fono_base", b); const F = LS.get(FON_K, []).filter((f) => !(f.l === L && +f.num >= +v[0])); LS.set(FON_K, F); renderFon(); updFonoBtn(); });
+    nb.appendChild(d);
+  }
+  const box = $("#fonlist"); box.innerHTML = "";
+  const F = LS.get(FON_K, []).slice().sort((a, b) => (b.data + b.ora).localeCompare(a.data + a.ora));
+  if (!F.length) { box.innerHTML = '<p class="pad muted">Nessun fonogramma registrato. Usa «Assegna» nella riga Fonogramma della scheda o «Registra» qui sopra.</p>'; return; }
+  for (const f of F) {
+    const el = document.createElement("div"); el.className = "fg";
+    el.innerHTML = '<span class="n' + (f.l === "F" ? " f" : "") + '">' + f.num + f.l + '</span><span class="t"><b></b><span class="o">' + esc(itDate(f.data).slice(0, 5) + " · " + f.ora) + "</span></span><span></span>";
+    el.querySelector("b").textContent = f.ogg || "—";
+    const r = f.rec && records.find((x) => x.id === f.rec);
+    if (r) { const a = document.createElement("button"); a.type = "button"; a.className = "lnk"; a.textContent = "Scheda"; a.addEventListener("click", () => { current = r.id; dirty = false; fillForm(r); vai("scheda"); }); el.lastChild.appendChild(a); }
+    box.appendChild(el);
+  }
+}
+function updFonoBtn() { const b = $("#fonoBtn"); if (!b) return; const c = readForm().campi, L = lettera(c); b.textContent = "Assegna " + prossimoFono(L) + L; b.hidden = !!$("#f_fonogramma").value.trim(); }
+
+/* ---------- diario del turno ---------- */
+const TUR_K = "rde_turno_v1";
+function turno() { return LS.get(TUR_K, { attivo: false, voci: [], storico: [] }); }
+function addTurno(tipo, testo, sub) { const T = turno(); if (!T.attivo) return; T.voci.push({ t: tipo, ora: oraAdesso(), testo, sub: sub || "" }); LS.set(TUR_K, T); }
+function updTurnoBadge() { const b = $("#turnoBadge"); if (b) b.hidden = !turno().attivo; }
+function riepTurno() {
+  const T = turno(); if (!T.voci.length) return "Nessuna voce nel diario del turno.";
+  const ev = T.voci.filter((v) => v.t === "ev").length, fo = T.voci.filter((v) => v.t === "fo").map((v) => v.testo.replace("Fonogramma ", ""));
+  return "Turno del " + itDate(T.data || todayISO()) + (T.nome ? " – " + T.nome : "") + ", settore " + (getProfile().settore || "Nord") + "\n" +
+    T.voci.map((v) => v.ora + "  " + v.testo + (v.sub && v.t !== "no" ? " (" + v.sub + ")" : "")).join("\n") +
+    "\n\nEventi: " + ev + (fo.length ? " · Fonogrammi: " + fo.join(", ") : "");
+}
+function renderTurno() {
+  const T = turno(), bar = $("#turnoBar"); bar.innerHTML = "";
+  $("#turnoInfo").textContent = T.attivo ? itDate(T.data) + (T.nome ? " · " + T.nome : "") : "";
+  if (!T.attivo) {
+    bar.innerHTML = '<span class="muted">Nessun turno in corso.</span><div style="flex:1"></div><button type="button" class="btn primary" id="tStart">Inizia turno</button>';
+    $("#tStart").addEventListener("click", async () => { const v = await modulo("Inizia turno", [{ l: "Turno (facoltativo)", ph: "es. N1 bussolotto" }], "Inizia"); if (!v) return; const T2 = turno(); Object.assign(T2, { attivo: true, data: todayISO(), nome: v[0], voci: [{ t: "st", ora: oraAdesso(), testo: "Inizio turno", sub: v[0] }] }); LS.set(TUR_K, T2); updTurnoBadge(); renderTurno(); });
+  } else {
+    const ev = T.voci.filter((v) => v.t === "ev").length, fo = T.voci.filter((v) => v.t === "fo").length, no = T.voci.filter((v) => v.t === "no").length;
+    bar.innerHTML = '<span class="pill">● In servizio dalle ' + esc((T.voci[0] || {}).ora || "") + '</span><span class="muted">eventi ' + ev + " · fonogrammi " + fo + " · note " + no + '</span><div style="flex:1"></div><button type="button" class="btn" id="tStop">Chiudi turno</button>';
+    $("#tStop").addEventListener("click", async () => {
+      if (!(await ask("Chiudere il turno?", "Il diario viene archiviato. Prima puoi condividere il riepilogo.", [["Annulla", false], ["Chiudi turno", true, true]]))) return;
+      const T2 = turno(); T2.voci.push({ t: "st", ora: oraAdesso(), testo: "Fine turno", sub: "" }); const txt = riepTurno();
+      T2.storico = [{ data: T2.data, nome: T2.nome, testo: txt }, ...(T2.storico || [])].slice(0, 30); Object.assign(T2, { attivo: false, voci: [] }); LS.set(TUR_K, T2); updTurnoBadge(); renderTurno(); condividiTesto(txt, "Riepilogo turno");
+    });
+  }
+  $("#notaBox").hidden = !T.attivo; $("#riepBox").hidden = !T.attivo;
+  $("#tl").innerHTML = T.voci.map((v) => '<li class="' + v.t + '"><span class="h">' + esc(v.ora) + '</span><span class="d"></span><span class="x">' + esc(v.testo) + (v.sub ? "<small>" + esc(v.sub) + "</small>" : "") + "</span></li>").join("");
+  $("#riepT").textContent = riepTurno();
+  const st = $("#storico"); st.innerHTML = (T.storico || []).length ? '<div class="grp">Turni precedenti</div>' : "";
+  for (const s of T.storico || []) { const d = document.createElement("details"); d.className = "stor"; d.innerHTML = "<summary></summary><pre></pre>"; d.querySelector("summary").textContent = itDate(s.data) + (s.nome ? " · " + s.nome : ""); d.querySelector("pre").textContent = s.testo; st.appendChild(d); }
+}
+
+/* ---------- rubrica ---------- */
+const RUB_K = "rde_rubrica_v1", AG_K = "rde_agenti_v1";
+const CATS = ["Tutti", "Agenti deposito", "Polizia RC", "Centrale e Sala Quadri", "Rimesse", "CDE", "ADE Nord", "Altri ADE", "Altri"];
+let rcat = "Tutti";
+function catDi(c) {
+  const r = c.r || "", n = c.n || "";
+  if (/polizia/i.test(c.rep || "") || /polizia roma capitale/i.test(r)) return "Polizia RC";
+  if (/^rimessa/i.test(n) || /rimessa|N\.A\.R\.|CNM/i.test(r)) return "Rimesse";
+  if (/centrale operativa|sala quadri|direzione|grandi eventi/i.test(r)) return "Centrale e Sala Quadri";
+  if (/^CDE/i.test(r)) return "CDE";
+  if (/^ADE Nord$/i.test(r)) return "ADE Nord";
+  if (/^ADE|capolinea|capo nucleo/i.test(r)) return "Altri ADE";
+  return "Altri";
+}
+const agName = (a) => tc(a.c) + " " + tc(a.n);
+function polizie() { return LS.get(RUB_K, []).filter((c) => catDi(c) === "Polizia RC"); }
+function contRow(c, sel) {
+  const el = document.createElement("div"); el.className = "ct" + (sel ? " sel" : "");
+  el.innerHTML = '<span><span class="nm"></span><span class="rl"></span></span><span class="ca"></span>';
+  el.querySelector(".nm").textContent = catDi(c) === "Polizia RC" ? "Polizia Roma Capitale – " + c.n : c.n;
+  el.querySelector(".rl").textContent = [catDi(c) === "Polizia RC" ? "" : c.r, (c.t || [])[0]].filter(Boolean).join(" · ");
+  const ca = el.querySelector(".ca");
+  if ((c.t || [])[0]) { const a = document.createElement("a"); a.className = "call"; a.href = telHref(c.t[0]); a.textContent = "📞"; a.setAttribute("aria-label", "Chiama " + c.n); ca.appendChild(a); }
+  if ((c.m || [])[0]) { const a = document.createElement("a"); a.className = "mail"; a.href = "mailto:" + c.m[0]; a.textContent = "✉"; a.setAttribute("aria-label", "Email a " + c.n); ca.appendChild(a); }
+  if (c.man) { const x = document.createElement("button"); x.type = "button"; x.className = "mail"; x.textContent = "×"; x.setAttribute("aria-label", "Elimina contatto"); x.addEventListener("click", async () => { if (!(await ask("Eliminare il contatto?", c.n, [["Annulla", false], ["Elimina", true, true]]))) return; LS.set(RUB_K, LS.get(RUB_K, []).filter((y) => y.id !== c.id)); renderRub(); }); ca.appendChild(x); }
+  return el;
+}
+function agRow(a) {
+  const el = document.createElement("div"); el.className = "ct";
+  el.innerHTML = '<span><span class="nm"></span><span class="rl"></span></span><span class="ca"></span>';
+  el.querySelector(".nm").textContent = agName(a); el.querySelector(".rl").textContent = "matr. " + a.m + " · " + [...a.t, a.a && "az. " + a.a].filter(Boolean).join(" · ");
+  const ca = el.querySelector(".ca");
+  for (const [n, l, t] of [[a.t[0], "📞", "Cellulare"], [a.a, "🏢", "Aziendale"]]) { if (!n) continue; const x = document.createElement("a"); x.className = "call"; x.href = telHref(n); x.textContent = l; x.title = t; x.setAttribute("aria-label", t + " " + agName(a)); ca.appendChild(x); }
+  return el;
+}
+function renderRub() {
+  const f = $("#rfilt");
+  if (!f.childElementCount) { f.innerHTML = CATS.map((c) => '<button type="button" class="fchip" data-c="' + c + '">' + c + "</button>").join(""); f.querySelectorAll(".fchip").forEach((b) => b.addEventListener("click", () => { rcat = b.dataset.c; renderRub(); })); }
+  f.querySelectorAll(".fchip").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.c === rcat)));
+  const q = ($("#qr").value || "").toLowerCase().trim(), box = $("#rublist"); box.innerHTML = "";
+  const R = LS.get(RUB_K, []), A = LS.get(AG_K, []);
+  $("#rubStat").textContent = R.length + " contatti · " + A.length + " agenti";
+  if (rcat === "Tutti" || rcat === "Agenti deposito") {
+    const g = document.createElement("div"); g.className = "grp"; g.textContent = "Agenti del deposito (" + A.length + ")"; box.appendChild(g);
+    if (!A.length) box.insertAdjacentHTML("beforeend", '<p class="pad muted" style="margin:0">Carica l’Excel della rubrica del deposito qui sotto.</p>');
+    else if (q.length < 2 && rcat !== "Agenti deposito") box.insertAdjacentHTML("beforeend", '<p class="pad muted" style="margin:0">Scrivi almeno 2 lettere o la matricola per cercare tra gli agenti.</p>');
+    else { const L = A.filter((a) => !q || (a.m + " " + a.c + " " + a.n).toLowerCase().includes(q)).slice(0, 80); L.forEach((a) => box.appendChild(agRow(a))); if (!L.length) box.insertAdjacentHTML("beforeend", '<p class="pad muted" style="margin:0">Nessun agente trovato.</p>'); }
+  }
+  for (const k of CATS.slice(2)) {
+    if (rcat !== "Tutti" && rcat !== k) continue;
+    const L = R.filter((c) => catDi(c) === k && (!q || (c.n + " " + c.r + " " + (c.t || []).join(" ")).toLowerCase().includes(q))).sort((a, b) => a.n.localeCompare(b.n, "it", { numeric: true }));
+    if (!L.length) continue;
+    const g = document.createElement("div"); g.className = "grp"; g.textContent = k + " (" + L.length + ")"; box.appendChild(g); L.forEach((c) => box.appendChild(contRow(c)));
+  }
+  if (!R.length && !A.length) box.insertAdjacentHTML("beforeend", '<p class="pad muted">La rubrica è vuota: carica il file CSV di Outlook e l’Excel del deposito qui sotto.</p>');
+}
+/* lettura file: CSV di Outlook o Excel (.xlsx) letto con JSZip */
+function parseCSV(text) {
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++) { const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += ch; }
+    else if (ch === '"') q = true; else if (ch === "," || ch === ";") { row.push(f); f = ""; } else if (ch === "\n") { row.push(f); rows.push(row); row = []; f = ""; } else if (ch !== "\r") f += ch; }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+async function readXlsx(file) {
+  await loadScript("./jszip.min.js");
+  const zip = await JSZip.loadAsync(await file.arrayBuffer()), P = new DOMParser();
+  const ss = zip.file("xl/sharedStrings.xml") ? [...P.parseFromString(await zip.file("xl/sharedStrings.xml").async("string"), "application/xml").getElementsByTagName("si")].map((si) => [...si.getElementsByTagName("t")].map((t) => t.textContent).join("")) : [];
+  const wb = P.parseFromString(await zip.file("xl/workbook.xml").async("string"), "application/xml");
+  const rels = P.parseFromString(await zip.file("xl/_rels/workbook.xml.rels").async("string"), "application/xml");
+  const relMap = {}; [...rels.getElementsByTagName("Relationship")].forEach((r) => (relMap[r.getAttribute("Id")] = r.getAttribute("Target")));
+  const sheets = {};
+  for (const sh of wb.getElementsByTagName("sheet")) {
+    const rid = sh.getAttribute("r:id") || sh.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
+    const path = "xl/" + String(relMap[rid] || "").replace(/^\/?xl\//, "");
+    const x = zip.file(path); if (!x) continue;
+    const doc = P.parseFromString(await x.async("string"), "application/xml"), out = [];
+    for (const r of doc.getElementsByTagName("row")) {
+      const line = [];
+      for (const c of r.getElementsByTagName("c")) {
+        const ref = c.getAttribute("r") || "", col = ref.replace(/\d+/g, "").split("").reduce((s, ch) => s * 26 + ch.charCodeAt(0) - 64, 0) - 1;
+        const v = c.getElementsByTagName("v")[0], is = c.getElementsByTagName("is")[0];
+        let val = is ? is.textContent : v ? v.textContent : "";
+        if (c.getAttribute("t") === "s") val = ss[+val] || "";
+        line[col] = val;
+      }
+      out.push([...line].map((x) => x == null ? "" : String(x)));
+    }
+    sheets[sh.getAttribute("name")] = out;
+  }
+  return sheets;
+}
+const cleanTel = (t) => String(t || "").trim().replace(/\.0$/, "");
+async function importaRubrica(file) {
+  try {
+    let tables = [];
+    if (/\.xlsx$/i.test(file.name)) { const S = await readXlsx(file); tables = Object.entries(S).sort(([a], [b]) => (b === "Rubrica") - (a === "Rubrica")).map(([, t]) => t); }
+    else tables = [parseCSV(await file.text())];
+    let nAg = 0, nCt = 0, upd = 0;
+    for (const t of tables) {
+      const h = (t[0] || []).map((x) => String(x).trim().toLowerCase());
+      if (h.includes("matricola") && h.includes("cognome")) {          // rubrica del deposito
+        const ix = (k) => h.indexOf(k), A = LS.get(AG_K, []), byM = new Map(A.map((a) => [a.m, a]));
+        for (const r of t.slice(1)) {
+          const m = String(r[ix("matricola")] || "").trim().replace(/\.0$/, ""); if (!m) continue;
+          const a = { m, c: String(r[ix("cognome")] || "").trim(), n: String(r[ix("nome")] || "").trim(), t: [r[ix("cellulare")], r[ix("cellulare 2")], r[ix("1^ utenza")], r[ix("2^ utenza")]].map(cleanTel).filter(Boolean), a: cleanTel(r[ix("aziendale")]) };
+          a.t = [...new Set(a.t)];
+          const old = byM.get(m); if (old) { if (JSON.stringify(old) !== JSON.stringify(a)) upd++; Object.assign(old, a); } else { A.push(a); byM.set(m, a); nAg++; }
+        }
+        LS.set(AG_K, A.sort((x, y) => (x.c + x.n).localeCompare(y.c + y.n, "it")));
+        if (tables.length > 1) break;   // nell'Excel del deposito basta il foglio "Rubrica"
+      } else if (h.includes("first name") || h.includes("nome") || h.includes("e-mail address")) {   // CSV di Outlook
+        const ix = (k) => h.indexOf(k), R = LS.get(RUB_K, []);
+        const key = (c) => ((c.m || [])[0] || c.n).toLowerCase();
+        const byK = new Map(R.map((c) => [key(c), c]));
+        for (const r of t.slice(1)) {
+          const g = (k) => (ix(k) >= 0 ? String(r[ix(k)] || "").trim() : "");
+          const dept = g("department"), comp = g("company"), job = g("job title");
+          let n = [g("first name"), g("last name")].filter(Boolean).join(" "), ruolo = job;
+          if (/polizia roma capitale/i.test(dept)) { n = comp.replace(/^gruppo\s+/i, "").replace(/gruppo\s+/i, "").trim(); ruolo = "Polizia Roma Capitale"; }
+          if (!n) n = comp || dept; if (!n || /^phil$/i.test(n)) continue;
+          const tel = [...new Set(["mobile phone", "business phone", "primary phone", "home phone", "company main phone", "business phone 2"].map(g).filter(Boolean))];
+          const mail = ["e-mail address", "e-mail 2 address"].map(g).filter(Boolean);
+          if (!tel.length && !mail.length) continue;
+          const c = { id: "c" + Math.random().toString(36).slice(2, 9), n, r: ruolo, rep: dept, t: tel, m: mail };
+          const old = byK.get(key(c)); if (old) { if (JSON.stringify([old.t, old.r]) !== JSON.stringify([c.t, c.r])) upd++; Object.assign(old, { ...c, id: old.id, man: old.man }); } else { R.push(c); byK.set(key(c), c); nCt++; }
+        }
+        LS.set(RUB_K, R);
+      }
+    }
+    renderRub(); fillAgentiList();
+    toast("Rubrica aggiornata: " + (nCt + nAg) + " nuovi, " + upd + " aggiornati.");
+  } catch (e) { console.error(e); toast("Non riesco a leggere questo file."); }
+}
+
+/* ---------- chiamate dalla scheda ---------- */
+function apriPolizia(g) {
+  const pol = polizie().sort((a, b) => a.n.localeCompare(b.n, "it", { numeric: true }));
+  if (!pol.length) { toast("Nessun gruppo di Polizia Roma Capitale in rubrica: caricala da Rubrica."); return; }
+  const m = String(g || "").match(/^(\d+)°/), sel = (pol.find((c) => c.n === g) || (m && pol.find((c) => c.n.startsWith(m[1] + "°") && g.toLowerCase().includes(c.n.split(" ").pop().toLowerCase()))) || (m && pol.find((c) => c.n.startsWith(m[1] + "°"))) || {}).n;
+  pol.sort((a, b) => (b.n === sel) - (a.n === sel));
+  const bg = document.createElement("div"); bg.className = "psh on"; bg.setAttribute("role", "dialog"); bg.setAttribute("aria-modal", "true");
+  bg.innerHTML = '<div class="box"><h3><span>Polizia Roma Capitale</span><button type="button" class="btn">Chiudi</button></h3><div class="pl"></div></div>';
+  pol.forEach((c) => bg.querySelector(".pl").appendChild(contRow(c, c.n === sel)));
+  bg.querySelector("h3 .btn").addEventListener("click", () => bg.remove()); bg.addEventListener("click", (e) => { if (e.target === bg) bg.remove(); });
+  document.body.appendChild(bg);
+}
+function fillAgentiList() { const dl = $("#dl_oe"); if (!dl) return; dl.querySelectorAll("option.ag").forEach((o) => o.remove()); for (const a of LS.get(AG_K, [])) { const o = document.createElement("option"); o.className = "ag"; o.value = agName(a); o.label = "matr. " + a.m; dl.appendChild(o); } }
+function cercaAgente() {
+  const A = LS.get(AG_K, []); if (!A.length) return null;
+  const v = $("#f_oe").value.trim().toLowerCase(), m = $("#f_matricola").value.trim();
+  return A.find((a) => m && a.m === m) || A.find((a) => agName(a).toLowerCase() === v || (a.c + " " + a.n).toLowerCase() === v || (a.n + " " + a.c).toLowerCase() === v) || null;
+}
+function mostraChiamaOE() {
+  const box = $("#oecall"); if (!box) return; box.innerHTML = "";
+  const a = cercaAgente(); if (!a) return;
+  if (a.t[0]) { const x = document.createElement("a"); x.className = "btn primary"; x.href = telHref(a.t[0]); x.textContent = "📞 Cellulare " + a.t[0]; box.appendChild(x); }
+  if (a.a) { const x = document.createElement("a"); x.className = "btn"; x.href = telHref(a.a); x.textContent = "🏢 Aziendale " + a.a; box.appendChild(x); }
+}
+function enhance3() {
+  buildTools();
+  // Polizia: chiama il gruppo
+  const pr = $("#row_polizia_rc > :not(label)");
+  const cr = document.createElement("div"); cr.className = "callrow";
+  cr.innerHTML = '<button type="button" class="btn primary" id="callPol">📞 Chiama il gruppo</button><button type="button" class="btn" id="allPol">Tutti i gruppi</button>';
+  pr.appendChild(cr);
+  $("#callPol").addEventListener("click", () => { const s = $("#row_polizia_rc select"); apriPolizia(s ? s.value : ""); });
+  $("#allPol").addEventListener("click", () => apriPolizia(""));
+  // O.E.: chiamata e matricola dalla rubrica agenti
+  const box = document.createElement("div"); box.className = "callrow"; box.id = "oecall"; $("#row_oe").appendChild(box);
+  const syncOE = () => { const a = cercaAgente(); if (a) { if (!$("#f_matricola").value.trim()) { $("#f_matricola").value = a.m; onEdit(); } if (!$("#f_oe").value.trim()) { $("#f_oe").value = agName(a); onEdit(); } } mostraChiamaOE(); };
+  $("#f_oe").addEventListener("input", syncOE); $("#f_oe").addEventListener("change", syncOE); $("#f_matricola").addEventListener("input", syncOE);
+  fillAgentiList();
+  // Deviazioni: dall'archivio
+  const dr = $("#row_deviazioni > :not(label)"), db2 = document.createElement("div"); db2.className = "callrow";
+  db2.innerHTML = '<button type="button" class="btn" id="devPick">📚 Dall’archivio deviazioni</button><span class="tagc" id="devTag"></span>';
+  dr.appendChild(db2);
+  $("#devPick").addEventListener("click", () => { $("#qd").value = readForm().campi.linea || ""; vai("dev"); });
+  // Fonogramma: assegna il prossimo numero
+  const fr = $("#f_fonogramma").parentElement, fb = document.createElement("button"); fb.type = "button"; fb.className = "now"; fb.id = "fonoBtn"; fb.addEventListener("click", assegnaFono);
+  fr.appendChild(fb);
+  $("#f_fonogramma").addEventListener("input", updFonoBtn);
+}
+/* aggiornamenti quando cambia la scheda */
+function updSchedaTools() {
+  const c = readForm().campi, n = devPerLinea(c.linea), t = $("#devTag");
+  if (t) t.textContent = n ? n + (n === 1 ? " salvata" : " salvate") + " per la linea " + c.linea : "";
+  updFonoBtn(); mostraChiamaOE();
+}
+const _fillForm3 = fillForm;
+fillForm = function (rec) { _fillForm3(rec); setTimeout(updSchedaTools); };
+const _onEdit3 = onEdit;
+onEdit = function () { _onEdit3(); clearTimeout(onEdit.t3); onEdit.t3 = setTimeout(updSchedaTools, 300); };
+const _save3 = save;
+save = async function (manual) {
+  const wasNew = !current, before = readForm();
+  const res = await _save3(manual);
+  if (current) {
+    const c = before.campi;
+    if (c.deviazioni_sn === "SI" && String(c.deviazioni || "").trim().length > 15) salvaDeviazione(c.linea, luogoPulito(c).split(",")[0], c.deviazioni, current, before.data);
+    if (wasNew && !isBlank(before)) addTurno("ev", [c.tipo_evento || "Evento", c.vettura && "vett. " + c.vettura, c.linea && "linea " + c.linea].filter(Boolean).join(" – "), [luogoPulito(c).split(",")[0], c.progressivo].filter(Boolean).join(" · "));
+  }
+  return res;
+};
+
 /* ---------- start ---------- */
 $("#logo").src = LOGO_PNG;
-buildRows(); enhance(); enhance2(); fillForm(null);
+buildRows(); enhance(); enhance2(); enhance3(); fillForm(null);
 $("#bDup").addEventListener("click", duplicate);
 $("#bReset").addEventListener("click", resetSheet);
 $("#mReset").addEventListener("click", resetSheet);
@@ -1648,7 +2103,7 @@ const browserDownloads = {
   $("#bBackup").addEventListener("click", () => {
     const all = db.all(); const n = Object.keys(all).length;
     if (!n) { toast("Nessuna scheda da salvare."); return; }
-    offer("Backup_Raccolta_Dati_Evento_" + todayISO() + ".json", new Blob([JSON.stringify({ app: "raccolta-dati-evento", versione: 1, creato: new Date().toISOString(), eventi: all }, null, 1)], { type: "application/json" }));
+    offer("Backup_Raccolta_Dati_Evento_" + todayISO() + ".json", new Blob([JSON.stringify({ app: "raccolta-dati-evento", versione: 2, creato: new Date().toISOString(), eventi: all, deviazioni: LS.get(DEV_K, []), fonogrammi: LS.get(FON_K, []), fono_base: LS.get("rde_fono_base", {}) }, null, 1)], { type: "application/json" }));
   });
   $("#bRestore").addEventListener("click", () => $("#fRestore").click());
   $("#fRestore").addEventListener("change", async (e) => {
@@ -1662,6 +2117,9 @@ const browserDownloads = {
         if (!all[id]) { all[id] = d; nuovi++; } else if (String(d.modificato || "") > String(all[id].modificato || "")) { all[id] = d; agg++; }
       }
       db.replaceAll(all);
+      if (Array.isArray(j.deviazioni)) { const D = LS.get(DEV_K, []), ks = new Set(D.map((d) => d.key)); for (const d of j.deviazioni) if (!ks.has(d.key)) D.push(d); LS.set(DEV_K, D); }
+      if (Array.isArray(j.fonogrammi)) { const F = LS.get(FON_K, []), ks = new Set(F.map((f) => f.l + f.num)); for (const f of j.fonogramme || j.fonogrammi) if (!ks.has(f.l + f.num)) F.push(f); LS.set(FON_K, F); }
+      if (j.fono_base) LS.set("rde_fono_base", { ...j.fono_base, ...LS.get("rde_fono_base", {}) });
       toast("Ripristino fatto: " + nuovi + " nuove, " + agg + " aggiornate.");
     } catch { toast("File di backup non valido."); }
   });
@@ -1777,7 +2235,7 @@ const browserDownloads = {
     const q = encodeURIComponent("name='Backup' and '" + root + "' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false");
     const j = await (await gapi("https://www.googleapis.com/drive/v3/files?fields=files(id)&q=" + q)).json();
     const bf = (j.files && j.files[0] && j.files[0].id) || await creaCartella("Backup", root);
-    const blob = new Blob([JSON.stringify({ app: "raccolta-dati-evento", versione: 1, creato: new Date().toISOString(), eventi: db.all() }, null, 1)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ app: "raccolta-dati-evento", versione: 2, creato: new Date().toISOString(), eventi: db.all(), deviazioni: LS.get(DEV_K, []), fonogrammi: LS.get(FON_K, []), fono_base: LS.get("rde_fono_base", {}) }, null, 1)], { type: "application/json" });
     await putFile(null, "Backup Raccolta Dati Evento " + oggi + ".json", blob, "application/json", bf);
     try { localStorage.setItem("rde_backup_day", oggi); } catch {}
   }
