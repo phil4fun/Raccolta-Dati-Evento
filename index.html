@@ -342,6 +342,7 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 .fotoadd { border: 1.5px solid var(--accent); color: var(--accent); background: #fff; display: inline-flex; align-items: center; cursor: pointer; }
 .fotoadd[hidden] { display: none; }
 .filtri { display: flex; flex-wrap: wrap; gap: 6px; }
+#rfilt { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; } #rfilt label { font-weight: 700; color: var(--label); } #rfilt select { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; background: #fff; color: #231f20; font: inherit; min-height: 42px; }
 .fchip { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 999px; padding: 5px 12px; min-height: 32px; font-size: 13px; font-weight: 700; cursor: pointer; }
 .fchip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .riep { margin: 0 10px 8px; border: 1px solid var(--line); border-radius: 10px; background: #fbf5f6; }
@@ -1883,25 +1884,39 @@ function renderTurno() {
 
 /* ---------- rubrica ---------- */
 const RUB_K = "rde_rubrica_v1", AG_K = "rde_agenti_v1";
-const CATS = ["Tutti", "Agenti deposito", "Polizia RC", "Centrale e Sala Quadri", "Rimesse", "CDE", "ADE Nord", "Altri ADE", "Altri"];
+const GRUPPI = ["Capolinea", "Centrale Operativa", "Deposito Grottarossa / Montesacro", "Direzione Operativa", "Grandi Eventi", "Nucleo Sorveglianza", "Personale", "Polizia Roma Capitale",
+  "Rimesse", "Sala Quadri", "Sala Quadri Ispettivo", "Settore Centrale", "Settore Est", "Settore Nord", "Settore Ovest", "Settore Sud", "Tram", "Altri settori"];   // alfabetico, «Altri» in fondo
+const AGENTI_G = "Agenti del deposito";
 let rcat = "Tutti";
 function catDi(c) {
-  const r = c.r || "", n = c.n || "";
-  if (/polizia/i.test(c.rep || "") || /polizia roma capitale/i.test(r)) return "Polizia RC";
-  if (/^rimessa/i.test(n) || /rimessa|N\.A\.R\.|CNM/i.test(r)) return "Rimesse";
-  if (/centrale operativa|sala quadri|direzione|grandi eventi/i.test(r)) return "Centrale e Sala Quadri";
-  if (/^CDE/i.test(r)) return "CDE";
-  if (/^ADE Nord$/i.test(r)) return "ADE Nord";
-  if (/^ADE|capolinea|capo nucleo/i.test(r)) return "Altri ADE";
-  return "Altri";
+  const rep = (c.rep || "").trim(), r = c.r || "", n = c.n || "";
+  if (/polizia/i.test(rep) || /polizia roma capitale/i.test(r)) return "Polizia Roma Capitale";
+  const g = GRUPPI.find((x) => x.toLowerCase() === rep.toLowerCase()); if (g) return g;   // gruppo dal campo Reparto di Outlook
+  if (/^rimessa/i.test(n) || /gestione rimessa/i.test(r)) return "Rimesse";
+  if (/centrale operativa/i.test(r)) return "Centrale Operativa";
+  if (/sala quadri ispettivo/i.test(r)) return "Sala Quadri Ispettivo";
+  if (/sala quadri/i.test(r)) return "Sala Quadri";
+  if (/grottarossa|montesacro|N\.A\.R\.|CNM/i.test(r)) return "Deposito Grottarossa / Montesacro";
+  if (/nucleo sorveglianza/i.test(r)) return "Nucleo Sorveglianza";
+  if (/grandi eventi/i.test(r)) return "Grandi Eventi";
+  if (/direzione/i.test(r)) return "Direzione Operativa";
+  if (/capolinea/i.test(r)) return "Capolinea";
+  if (/tram/i.test(r)) return "Tram";
+  if (/\bnord\b/i.test(r)) return "Settore Nord";
+  if (/\best\b/i.test(r)) return "Settore Est";
+  if (/\bovest\b/i.test(r)) return "Settore Ovest";
+  if (/\bsud\b/i.test(r)) return "Settore Sud";
+  if (/centrale|notturne/i.test(r)) return "Settore Centrale";
+  return "Altri settori";
 }
 const agName = (a) => tc(a.c) + " " + tc(a.n);
-function polizie() { return LS.get(RUB_K, []).filter((c) => catDi(c) === "Polizia RC"); }
+function nomeVis(c) { if (catDi(c) === "Polizia Roma Capitale") return "Polizia Roma Capitale – " + c.n; return c.cg ? (c.cg + " " + (c.nm || "")).trim() : c.n; }
+function polizie() { return LS.get(RUB_K, []).filter((c) => catDi(c) === "Polizia Roma Capitale"); }
 function contRow(c, sel) {
   const el = document.createElement("div"); el.className = "ct" + (sel ? " sel" : "");
   el.innerHTML = '<span><span class="nm"></span><span class="rl"></span></span><span class="ca"></span>';
-  el.querySelector(".nm").textContent = catDi(c) === "Polizia RC" ? "Polizia Roma Capitale – " + c.n : c.n;
-  el.querySelector(".rl").textContent = [catDi(c) === "Polizia RC" ? "" : c.r, (c.t || [])[0]].filter(Boolean).join(" · ");
+  el.querySelector(".nm").textContent = nomeVis(c);
+  el.querySelector(".rl").textContent = [catDi(c) === "Polizia Roma Capitale" ? "" : c.r, (c.t || [])[0]].filter(Boolean).join(" · ");
   const ca = el.querySelector(".ca");
   if ((c.t || [])[0]) { const a = document.createElement("a"); a.className = "call"; a.href = telHref(c.t[0]); a.textContent = "📞"; a.setAttribute("aria-label", "Chiama " + c.n); ca.appendChild(a); }
   if ((c.m || [])[0]) { const a = document.createElement("a"); a.className = "mail"; a.href = "mailto:" + c.m[0]; a.textContent = "✉"; a.setAttribute("aria-label", "Email a " + c.n); ca.appendChild(a); }
@@ -1917,21 +1932,24 @@ function agRow(a) {
   return el;
 }
 function renderRub() {
-  const f = $("#rfilt");
-  if (!f.childElementCount) { f.innerHTML = CATS.map((c) => '<button type="button" class="fchip" data-c="' + c + '">' + c + "</button>").join(""); f.querySelectorAll(".fchip").forEach((b) => b.addEventListener("click", () => { rcat = b.dataset.c; renderRub(); })); }
-  f.querySelectorAll(".fchip").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.c === rcat)));
+  const f = $("#rfilt"), R0 = LS.get(RUB_K, []), A0 = LS.get(AG_K, []);
+  const cnt = {}; R0.forEach((c) => { const k = catDi(c); cnt[k] = (cnt[k] || 0) + 1; });
+  const voci = [["Tutti", "Tutti i contatti (" + (R0.length + A0.length) + ")"], [AGENTI_G, AGENTI_G + " (" + A0.length + ")"], ...GRUPPI.filter((k) => cnt[k]).map((k) => [k, k + " (" + cnt[k] + ")"])];
+  if (!voci.some(([k]) => k === rcat)) rcat = "Tutti";
+  f.innerHTML = '<label for="rsel">Gruppo</label><select id="rsel">' + voci.map(([k, l]) => '<option value="' + esc(k) + '"' + (k === rcat ? " selected" : "") + ">" + esc(l) + "</option>").join("") + "</select>";
+  $("#rsel").addEventListener("change", (e) => { rcat = e.target.value; renderRub(); });
   const q = ($("#qr").value || "").toLowerCase().trim(), box = $("#rublist"); box.innerHTML = "";
   const R = LS.get(RUB_K, []), A = LS.get(AG_K, []);
   $("#rubStat").textContent = R.length + " contatti · " + A.length + " agenti";
-  if (rcat === "Tutti" || rcat === "Agenti deposito") {
+  if (rcat === "Tutti" || rcat === AGENTI_G) {
     const g = document.createElement("div"); g.className = "grp"; g.textContent = "Agenti del deposito (" + A.length + ")"; box.appendChild(g);
     if (!A.length) box.insertAdjacentHTML("beforeend", '<p class="pad muted" style="margin:0">Carica l’Excel della rubrica del deposito qui sotto.</p>');
-    else if (q.length < 2 && rcat !== "Agenti deposito") box.insertAdjacentHTML("beforeend", '<p class="pad muted" style="margin:0">Scrivi almeno 2 lettere o la matricola per cercare tra gli agenti.</p>');
+    else if (q.length < 2 && rcat !== AGENTI_G) box.insertAdjacentHTML("beforeend", '<p class="pad muted" style="margin:0">Scrivi almeno 2 lettere o la matricola per cercare tra gli agenti.</p>');
     else { const L = A.filter((a) => !q || (a.m + " " + a.c + " " + a.n).toLowerCase().includes(q)).slice(0, 80); L.forEach((a) => box.appendChild(agRow(a))); if (!L.length) box.insertAdjacentHTML("beforeend", '<p class="pad muted" style="margin:0">Nessun agente trovato.</p>'); }
   }
-  for (const k of CATS.slice(2)) {
+  for (const k of GRUPPI) {
     if (rcat !== "Tutti" && rcat !== k) continue;
-    const L = R.filter((c) => catDi(c) === k && (!q || (c.n + " " + c.r + " " + (c.t || []).join(" ")).toLowerCase().includes(q))).sort((a, b) => a.n.localeCompare(b.n, "it", { numeric: true }));
+    const L = R.filter((c) => catDi(c) === k && (!q || (c.n + " " + (c.cg || "") + " " + c.r + " " + (c.t || []).join(" ")).toLowerCase().includes(q))).sort((a, b) => nomeVis(a).localeCompare(nomeVis(b), "it", { numeric: true }));
     if (!L.length) continue;
     const g = document.createElement("div"); g.className = "grp"; g.textContent = k + " (" + L.length + ")"; box.appendChild(g); L.forEach((c) => box.appendChild(contRow(c)));
   }
@@ -2006,7 +2024,8 @@ async function importaRubrica(file) {
           const tel = [...new Set(["mobile phone", "business phone", "primary phone", "home phone", "company main phone", "business phone 2"].map(g).filter(Boolean))];
           const mail = ["e-mail address", "e-mail 2 address"].map(g).filter(Boolean);
           if (!tel.length && !mail.length) continue;
-          const c = { id: "c" + Math.random().toString(36).slice(2, 9), n, r: ruolo, rep: dept, t: tel, m: mail };
+          const pol = /polizia roma capitale/i.test(dept);
+          const c = { id: "c" + Math.random().toString(36).slice(2, 9), n, r: ruolo, rep: dept, t: tel, m: mail, cg: pol ? "" : g("last name"), nm: pol ? "" : g("first name") };
           const old = byK.get(key(c)); if (old) { if (JSON.stringify([old.t, old.r]) !== JSON.stringify([c.t, c.r])) upd++; Object.assign(old, { ...c, id: old.id, man: old.man }); } else { R.push(c); byK.set(key(c), c); nCt++; }
         }
         LS.set(RUB_K, R);
