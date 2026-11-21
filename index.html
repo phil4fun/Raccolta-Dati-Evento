@@ -431,6 +431,12 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 @media (min-width: 601px) { #exportActions { flex-wrap: wrap; } }
 .themeb.sync { opacity: .75; } .themeb.sync.on { opacity: 1; background: rgba(255,255,255,.18); } .themeb.sync.err { background: #f2b705; color: #3b2a00; }
 .mbox .sy { font-size: 14.5px; }
+
+/* InVettura: sezione Mezzi live e scelta vettura */
+.ivcard { padding: 0; overflow: hidden; }
+.ivframe { display: block; width: 100%; height: calc(100dvh - 190px); min-height: 520px; border: 0; background: var(--paper); }
+.ivpick { position: fixed; inset: 0; z-index: 9999; background: var(--paper); display: flex; flex-direction: column; }
+.ivpick iframe { flex: 1; width: 100%; border: 0; }
 </style>
 </head>
 <body>
@@ -496,7 +502,7 @@ const FIELDS = [
   { k: "ora_evento", l: "Ora Evento", t: "time" },
   { k: "luogo_evento", l: "Luogo Evento", ph: "Via / piazza, civico o incrocio, direzione", gps: true },
   { k: "altezza_fermata", l: "Altezza fermata", ph: "Nome o codice della fermata" },
-  { k: "vettura", l: "Vettura" },
+  { k: "vettura", l: "Vettura", live: true },
   { k: "linea_orario", l: "Linea/Orario", tpl: "Linea/Orario/Deposito", t: "pair", a: { k: "linea", l: "Linea", options: "LINEE", upper: true }, b: { k: "orario", l: "Orario" }, legacy: "linea_orario_deposito" },
   { k: "deposito", l: "Deposito", t: "choice", options: ["Acilia", "Grottarossa", "Magliana", "Montesacro", "Porta Maggiore", "Portonaccio", "Tor Pagnotta", "Tor Sapienza", "Tor Vergata"] },
   { k: "proveniente", l: "Proveniente" },
@@ -651,6 +657,13 @@ function buildRows() {
       else { el = document.createElement("input"); el.type = f.t === "time" ? "time" : "text"; if (f.ph) el.placeholder = f.ph; }
       el.id = id; el.name = f.k;
       el.addEventListener("input", onEdit);
+    }
+    if (f.live) {
+      const wrap = document.createElement("div"); wrap.className = "gpsrow";
+      const b = document.createElement("button"); b.type = "button"; b.className = "gps"; b.textContent = "🚌 Dal vivo";
+      b.title = "Cerca la vettura in tempo reale e compila vettura, linea e fermata"; b.setAttribute("aria-label", "Cerca la vettura in tempo reale con InVettura");
+      b.addEventListener("click", () => openLive(el.value));
+      wrap.append(el, b); row.append(lab, wrap); box.appendChild(row); continue;
     }
     if (f.gps) {
       const wrap = document.createElement("div"); wrap.className = "gpsrow";
@@ -1689,8 +1702,36 @@ function modulo(title, fields, okLabel) {   // piccola finestra con campi, resti
   });
 }
 
+
+/* ---------- InVettura: compila vettura/linea/fermata dal vivo ---------- */
+function openLive(q) {
+  closeLive();
+  const box = document.createElement("div"); box.className = "ivpick"; box.id = "ivPick";
+  const fr = document.createElement("iframe"); fr.title = "InVettura: scegli la vettura"; fr.allow = "geolocation";
+  fr.src = "invettura/?pick=1" + (q ? "&q=" + encodeURIComponent(q.trim()) : "");
+  box.appendChild(fr); document.body.appendChild(box); document.body.style.overflow = "hidden";
+}
+function closeLive() { const b = $("#ivPick"); if (b) b.remove(); document.body.style.overflow = ""; }
+function setLinea(linea) {
+  const f = FIELDS.find((x) => x.k === "linea_orario"); if (!f || !linea) return;
+  const el = $("#f_" + f.k), other = $("#f_" + f.k + "_altro"), L = String(linea).toUpperCase();
+  if (LINEE.includes(L)) { el.value = L; other.value = ""; other.hidden = true; } else { el.value = "__altro"; other.value = L; other.hidden = false; }
+}
+window.addEventListener("message", (e) => {
+  if (e.origin !== location.origin || !e.data || typeof e.data !== "object") return;
+  if (e.data.type === "invettura-close") { closeLive(); return; }
+  if (e.data.type !== "invettura-pick") return;
+  const d = e.data, done = [];
+  if (tabOra !== "scheda") vai("scheda");
+  if (d.vettura) { $("#f_vettura").value = d.vettura; done.push("vettura " + d.vettura); }
+  if (d.linea) { setLinea(d.linea); done.push("linea " + d.linea); }
+  const af = $("#f_altezza_fermata");
+  if (d.fermata && af && !af.value.trim()) { af.value = d.fermata + (d.fermataCodice ? " (" + d.fermataCodice + ")" : ""); done.push("fermata"); }
+  closeLive(); onEdit();
+  toast("Compilato dal vivo: " + done.join(", "));
+});
 /* ---------- navigazione ---------- */
-const TABS = [["scheda", "Scheda"], ["dev", "Deviazioni"], ["fon", "Fonogrammi"], ["turno", "Turno"], ["rub", "Rubrica"]];
+const TABS = [["scheda", "Scheda"], ["mezzi", "Mezzi live"], ["dev", "Deviazioni"], ["fon", "Fonogrammi"], ["turno", "Turno"], ["rub", "Rubrica"]];
 let tabOra = "scheda";
 function vai(t) {
   tabOra = t;
@@ -1699,6 +1740,7 @@ function vai(t) {
   const sch = t === "scheda";
   $("main").hidden = !sch; $("aside.archive").hidden = !sch; $(".tools").hidden = sch; $(".mbar").classList.toggle("off", !sch);
   if (t === "dev") renderDev(); if (t === "fon") renderFon(); if (t === "turno") renderTurno(); if (t === "rub") renderRub();
+  if (t === "mezzi") { const fr = $("#ivFrame"); if (!fr.src) fr.src = "invettura/?embed=1"; }
   window.scrollTo({ top: 0 });
 }
 function buildTools() {
@@ -1708,6 +1750,7 @@ function buildTools() {
   nav.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => vai(b.dataset.t)));
   const box = document.createElement("div"); box.className = "tools"; box.hidden = true;
   box.innerHTML = `
+  <section data-p="mezzi" hidden><div class="card ivcard"><iframe id="ivFrame" class="ivframe" title="InVettura: mezzi in tempo reale" allow="geolocation"></iframe></div></section>
   <section data-p="dev" hidden><div class="card"><div class="ch"><h2>Archivio deviazioni</h2><button type="button" class="btn primary" id="devNew">+ Nuova</button></div>
     <div class="pad"><input type="search" class="search" id="qd" placeholder="Cerca linea, via, capolinea… (es. 338 Val d’Aosta)"></div>
     <p class="pad muted" style="padding-top:0">Ogni deviazione scritta in una scheda viene salvata qui da sola. La riusi con un tocco.</p><div id="devlist"></div></div></section>

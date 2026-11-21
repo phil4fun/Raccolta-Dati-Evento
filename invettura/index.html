@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>InVettura</title>
+<meta name="theme-color" content="#910021">
+<meta name="description" content="Tempi di attesa e mezzi in tempo reale a Roma">
+<link rel="icon" type="image/png" href="../icon-192.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{
+  --bg:#f6f3f1; --panel:#ffffff; --panel2:#fbf7f6; --line:#e6dcdb; --text:#231f20; --muted:#6f6567;
+  --accent:#910021; --accent-ink:#ffffff; --accent-soft:#f7e4e8; --bar:#910021; --bar-ink:#ffffff; --gold:#f2b705;
+  --ok:#2f7a4a; --warn:#a35f00; --warn-soft:#fff4e0; --late:#b3261e; --early:#1f6fb2; --hole-soft:#fde3dc; --hole:#a3260f;
+  --r:14px;
+  font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#160f10; --panel:#211718; --panel2:#281c1d; --line:#3d2c2d; --text:#f1eaea; --muted:#b3a5a6;
+  --accent:#e8798d; --accent-ink:#160f10; --accent-soft:#3d1a21; --bar:#5e0016; --bar-ink:#fff3f5;
+  --ok:#79c891; --warn:#e6a64c; --warn-soft:#33240f; --late:#ff8f7a; --early:#6cc4ff; --hole-soft:#3a1616; --hole:#ff8f7a; color-scheme:dark; }
+  :root:not([data-theme="light"]) .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.6)} }
+:root[data-theme="dark"]{
+  --bg:#160f10; --panel:#211718; --panel2:#281c1d; --line:#3d2c2d; --text:#f1eaea; --muted:#b3a5a6;
+  --accent:#e8798d; --accent-ink:#160f10; --accent-soft:#3d1a21; --bar:#5e0016; --bar-ink:#fff3f5;
+  --ok:#79c891; --warn:#e6a64c; --warn-soft:#33240f; --late:#ff8f7a; --early:#6cc4ff; --hole-soft:#3a1616; --hole:#ff8f7a; color-scheme:dark; }
+:root[data-theme="dark"] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.6)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text)}
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 16px 12px;background:var(--bar);color:var(--bar-ink);box-shadow:inset 0 -4px 0 var(--gold)}
+html.embed header{display:none}
+header .x{background:rgba(255,255,255,.15);border:0;color:var(--bar-ink);font:inherit;font-weight:700;border-radius:10px;padding:8px 12px;cursor:pointer}
+.logo{display:flex;align-items:center;gap:8px;font-family:"Barlow Semi Condensed",var(--font,system-ui),sans-serif;font-weight:600;font-size:22px;letter-spacing:.01em}
+.logo b{color:var(--gold);font-weight:600}
+.logo svg{width:28px;height:28px}
+#status{margin-left:auto;font-size:12px;opacity:.85;display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.6}
+.dot.live{background:#3ddc97;opacity:1;box-shadow:0 0 0 0 rgba(61,220,151,.6);animation:pulse 2s infinite}
+.dot.err{background:var(--gold);opacity:1}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(61,220,151,0)}100%{box-shadow:0 0 0 0 rgba(61,220,151,0)}}
+main{flex:1;position:relative;overflow:hidden}
+.view{position:absolute;inset:0;overflow-y:auto;padding:14px 14px 24px;display:none}
+.view.active{display:block}
+#v-mappa{padding:0}
+#map{position:absolute;inset:0;background:var(--panel2)}
+nav{display:flex;border-top:1px solid var(--line);background:var(--panel);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:0;color:var(--muted);padding:9px 4px 8px;font:inherit;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
+nav button svg{width:22px;height:22px}
+nav button.active{color:var(--accent)}
+h2{font-family:"Barlow Semi Condensed",sans-serif;font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin:18px 4px 8px;font-weight:600}
+h2:first-child{margin-top:4px}
+.search{display:flex;gap:8px}
+input[type=search],input[type=text]{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px 14px;font:inherit;font-size:16px;outline:none;min-width:0}
+input:focus{border-color:var(--accent)}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:0 16px;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.list{display:flex;flex-direction:column;gap:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:12px}
+.card:active{background:var(--panel2)}
+.card .t{font-weight:650}
+.card .s{font-size:13px;color:var(--muted);margin-top:2px}
+.card .grow{flex:1;min-width:0}
+.card .dist{font-size:13px;color:var(--muted);white-space:nowrap}
+.star{background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer;padding:4px}
+.star.on{color:var(--gold)}
+.empty{color:var(--muted);text-align:center;padding:28px 12px;font-size:14px;line-height:1.5}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:30px;padding:0 8px;border-radius:8px;font-weight:800;font-size:15px;background:#334;color:#fff}
+.arr{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
+.arr .min{font-size:22px;font-weight:800;text-align:right;min-width:62px;font-variant-numeric:tabular-nums}
+.arr .min small{font-size:12px;font-weight:600;color:var(--muted);display:block}
+.arr .min.now{color:var(--accent)}
+.rt{font-size:11px;color:var(--ok);font-weight:600}
+.back{background:none;border:0;color:var(--accent);font:inherit;font-weight:600;padding:4px 0;cursor:pointer}
+.stophead{margin:6px 0 12px}
+.stophead .n{font-size:22px;font-weight:800;letter-spacing:-.01em}
+.stophead .c{color:var(--muted);font-size:13px}
+.note{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.5}
+.alert{background:var(--warn-soft);border:1px solid var(--warn);color:var(--text);border-radius:12px;padding:10px 12px;font-size:13px;margin-bottom:8px}
+.alert b{display:block;margin-bottom:2px}
+.alert summary{cursor:pointer;list-style:none}
+.alert summary::-webkit-details-marker{display:none}
+.mapbar{position:absolute;top:12px;left:12px;right:12px;z-index:500;display:flex;gap:8px}
+.mapbar input{box-shadow:0 4px 18px rgba(0,0,0,.18);background:var(--panel)}
+.mapinfo{position:absolute;bottom:12px;left:12px;z-index:500;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12px;color:var(--muted)}
+.vm{display:flex;align-items:center;justify-content:center;border-radius:7px;font-size:11px;font-weight:800;color:#fff;border:2px solid rgba(0,0,0,.35);box-shadow:0 1px 4px rgba(0,0,0,.5);white-space:nowrap;padding:0 4px;height:22px}
+.vm.hl{outline:3px solid var(--accent);outline-offset:1px}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--panel);color:var(--text)}
+.leaflet-popup-content{margin:10px 12px;font:13px/1.45 system-ui,sans-serif}
+.leaflet-container a.leaflet-popup-close-button{color:var(--muted)}
+.leaflet-control-attribution{background:var(--panel)!important;color:var(--muted)!important;opacity:.85}
+.leaflet-control-attribution a{color:var(--muted)!important}
+.me{width:16px;height:16px;border-radius:50%;background:#4aa3ff;border:3px solid #fff;box-shadow:0 0 0 6px rgba(74,163,255,.25)}
+.loading{position:fixed;inset:0;background:var(--bg);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px;text-align:center}
+.loading.hide{display:none}
+.loading .logo b{color:var(--accent)}
+html.embed .loading{position:absolute}
+.bar{width:220px;height:6px;border-radius:3px;background:var(--panel2);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.loading p{color:var(--muted);font-size:14px;margin:0;max-width:300px}
+.veh{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.veh .row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px}
+.veh .row:last-child{border:0}
+.veh .row span:first-child{color:var(--muted)}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips .badge{cursor:pointer;min-width:52px;height:36px;font-size:16px}
+.seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px;margin:10px 0}
+.seg button{flex:1;background:none;border:0;color:var(--muted);font:inherit;font-size:13px;font-weight:600;padding:8px 6px;border-radius:9px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+.schema{position:relative;margin:8px 0 0 0}
+.sst{display:flex;gap:12px;align-items:stretch;min-height:44px}
+.sst .rail{width:22px;flex:none;position:relative;display:flex;justify-content:center}
+.sst .rail::before{content:"";position:absolute;top:0;bottom:0;width:4px;background:var(--rc,#556);border-radius:2px}
+.sst:first-child .rail::before{top:50%}.sst:last-child .rail::before{bottom:50%}
+.sst .rail i{position:relative;margin-top:15px;width:12px;height:12px;border-radius:50%;background:var(--bg);border:3px solid var(--rc,#556);z-index:1}
+.sst .body{flex:1;min-width:0;padding:10px 0 8px;border-bottom:1px solid var(--line);cursor:pointer}
+.sst .body .nm{font-size:14px;font-weight:600}
+.sst .body .vv{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.gap{color:var(--muted);font-size:12px;padding:8px 0 8px 34px;font-style:italic}
+.vchip{display:inline-flex;align-items:center;gap:5px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:12px;font-weight:700;cursor:pointer}
+.vchip.app{border-style:dashed}
+.vchip .dl{font-weight:600;color:var(--muted)}
+.late{color:var(--late)!important}.early{color:var(--early)!important}
+.flag{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:2px 6px;margin-left:4px}
+.flag.q{background:var(--accent-soft);color:var(--accent)}.flag.h{background:var(--hole-soft);color:var(--hole)}.flag.s{background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
+.mon{width:100%;border-collapse:collapse;font-size:13px}
+.mon th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:6px 4px;border-bottom:1px solid var(--line)}
+.mon td{padding:9px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+.mon tr{cursor:pointer}
+.mon td.n{font-weight:800;white-space:nowrap}
+.sum{display:flex;gap:8px;margin:10px 0}
+.sum div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.sum b{display:block;font-size:20px}.sum span{font-size:11px;color:var(--muted)}
+.vm.stale{opacity:.4}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="10" width="52" height="40" rx="10" fill="#f2b705"/><rect x="13" y="17" width="16" height="13" rx="3" fill="#910021"/><rect x="35" y="17" width="16" height="13" rx="3" fill="#910021"/><circle cx="19" cy="52" r="6" fill="#fff"/><circle cx="45" cy="52" r="6" fill="#fff"/><rect x="13" y="37" width="38" height="5" rx="2.5" fill="#910021" opacity=".35"/></svg>
+    <span>In<b>Vettura</b></span>
+  </div>
+  <div id="status"><span class="dot" id="dot"></span><span id="stxt">—</span></div>
+  <button class="x" id="pickClose" hidden>Chiudi</button>
+</header>
+
+<main>
+  <section class="view active" id="v-attese">
+    <div id="attese-home">
+      <div class="search">
+        <input type="search" id="q" placeholder="Fermata: nome o numero" autocomplete="off">
+        <button class="btn ghost" id="gps" title="Fermate vicine">📍</button>
+      </div>
+      <div id="results"></div>
+    </div>
+    <div id="attese-stop" hidden></div>
+  </section>
+
+  <section class="view" id="v-linee">
+    <div id="linee-home">
+      <div class="search"><input type="search" id="lq" placeholder="Linea (es. 90, 32, n8)" autocomplete="off"></div>
+      <div id="lres"></div>
+    </div>
+    <div id="linee-line" hidden></div>
+  </section>
+
+  <section class="view" id="v-mappa">
+    <div id="map"></div>
+    <div class="mapbar">
+      <input type="search" id="lineFilter" placeholder="Filtra linee (es. 90, 63, 446)" autocomplete="off">
+    </div>
+    <div class="mapinfo" id="mapinfo">—</div>
+  </section>
+
+  <section class="view" id="v-vettura">
+    <h2>Cerca vettura</h2>
+    <div class="search">
+      <input type="text" id="vq" placeholder="Numero vettura (es. 0110 o 110)" inputmode="numeric" autocomplete="off">
+      <button class="btn" id="vgo">Cerca</button>
+    </div>
+    <div id="vres" style="margin-top:12px"></div>
+    <p class="note">Il numero corrisponde all'identificativo del mezzo pubblicato nel feed in tempo reale di Roma Mobilità.</p>
+  </section>
+
+  <section class="view" id="v-info">
+    <h2>InVettura</h2>
+    <div class="card" style="cursor:default;display:block">
+      <div class="t">Trasporto pubblico di Roma, in tempo reale</div>
+      <div class="s" style="margin-top:6px;line-height:1.5">Tempi di attesa alle fermate, mezzi sulla mappa e ricerca per numero di vettura, con i dati aperti di Roma Servizi per la Mobilità (ATAC e Roma TPL).</div>
+    </div>
+    <h2>Dati</h2>
+    <div class="list">
+      <div class="card" style="cursor:default"><div class="grow"><div class="t">Rete e fermate</div><div class="s" id="gtfsinfo">—</div></div></div>
+      <div class="card" style="cursor:default"><div class="grow"><div class="t">Tempo reale</div><div class="s">Posizioni e previsioni GTFS-Realtime, aggiornate ogni 20 secondi</div></div></div>
+      <button class="btn ghost" id="reload" style="padding:12px">Riscarica dati della rete</button>
+    </div>
+    <h2>Installa come app</h2>
+    <div class="card" style="cursor:default;display:block">
+      <div class="s" style="line-height:1.6"><b>Android (Chrome):</b> menu ⋮ → <i>Installa app</i> / <i>Aggiungi a schermata Home</i>.<br><b>iPhone (Safari):</b> pulsante Condividi → <i>Aggiungi alla schermata Home</i>.</div>
+      <button class="btn" id="install" style="padding:12px;margin-top:10px;width:100%" hidden>Installa InVettura</button>
+    </div>
+    <p class="note">Fonti: Roma Servizi per la Mobilità (open data GTFS / GTFS-RT) · Mappe © OpenStreetMap contributors. Le previsioni possono differire dal servizio reale. Progetto personale, non affiliato ad ATAC.</p>
+  </section>
+</main>
+
+<nav>
+  <button data-v="attese" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Attese</button>
+  <button data-v="linee"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><path d="M6 7v10"/><path d="M11 5h9M11 12h9M11 19h9"/><circle cx="6" cy="12" r="2"/></svg>Linee</button>
+  <button data-v="mappa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></svg>Mappa</button>
+  <button data-v="vettura"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="13" rx="3"/><path d="M4 11h16"/><circle cx="8" cy="20" r="1.5"/><circle cx="16" cy="20" r="1.5"/></svg>Vettura</button>
+  <button data-v="info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>Info</button>
+</nav>
+
+<div class="loading" id="loading">
+  <div class="logo" style="font-size:30px;color:var(--accent)"><span>In<b>Vettura</b></span></div>
+  <div class="bar"><i id="lbar"></i></div>
+  <p id="ltxt">Avvio…</p>
+</div>
+
+<script>window.INVETTURA_API = 'https://invettura.fili979.workers.dev';</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js?v=mwr21m2m"></script>
+</body>
+</html>
