@@ -1,0 +1,33 @@
+name: InVettura - dati linee e partenze
+
+on:
+  schedule:
+    - cron: "17 2 * * *"   # ogni notte alle 03:17 (ora di Roma, inverno)
+  workflow_dispatch:        # avvio a mano dal tab Actions
+
+permissions:
+  contents: write
+
+concurrency:
+  group: invettura-dati
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Prepara i dati dal GTFS di Roma Mobilita
+        run: python3 invettura/tools/build_data.py https://romamobilita.it/sites/default/files/rome_static_gtfs.zip invettura/data
+      - name: Salva se ci sono novita
+        run: |
+          git config user.name "InVettura bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add invettura/data
+          if git diff --cached --quiet; then echo "Nessuna novita"; exit 0; fi
+          git commit -m "InVettura: dati aggiornati $(date -u +%Y-%m-%d)"
+          git push
