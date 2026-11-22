@@ -437,6 +437,12 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 .ivframe { display: block; width: 100%; height: calc(100dvh - 190px); min-height: 520px; border: 0; background: var(--paper); }
 .ivpick { position: fixed; inset: 0; z-index: 9999; background: var(--paper); display: flex; flex-direction: column; }
 .ivpick iframe { flex: 1; width: 100%; border: 0; }
+.sugglinee { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px 10px; background: var(--band); border-top: 1px dashed var(--line); }
+.sugglinee[hidden] { display: none; }
+.sugglinee .sl { font-size: 13px; color: var(--muted); margin-right: 4px; }
+.sugglinee .slc { border: 1px solid var(--accent); background: var(--surface); color: var(--accent); border-radius: 999px; padding: 4px 10px; min-height: 32px; font-weight: 700; font-size: 14px; cursor: pointer; }
+.sugglinee .slc.on { background: var(--accent); color: var(--accent-ink); }
+.sugglinee .slc.all { border-style: dashed; }
 </style>
 </head>
 <body>
@@ -778,6 +784,7 @@ function fillForm(rec) {
     else el.value = val;
   }
   renderList();
+  setTimeout(suggerisciLinee, 0);
 }
 /* what goes in the exported cell */
 function disp(rec, f) {
@@ -1703,6 +1710,56 @@ function modulo(title, fields, okLabel) {   // piccola finestra con campi, resti
 }
 
 
+
+/* ---------- InVettura: linee che passano alla fermata (per "Linee interessate") ---------- */
+let FERMATE = null;
+const normF = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+async function caricaFermate() {
+  if (FERMATE) return FERMATE;
+  const d = new Date(), v = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  const r = await fetch("invettura/data/fermate.json?v=" + v); if (!r.ok) throw new Error("HTTP " + r.status);
+  FERMATE = (await r.json()).map(([id, n, l]) => ({ id, n, l, k: normF(n) }));
+  return FERMATE;
+}
+function lineeFermata(txt) {
+  if (!FERMATE || !txt) return null;
+  const code = (txt.match(/\((\d{3,6})\)\s*$/) || txt.match(/^\s*(\d{3,6})\s*$/) || [])[1];
+  let hit = code ? FERMATE.filter((f) => f.id === code) : [];
+  if (!hit.length) {
+    const k = normF(txt.replace(/\(.*?\)/g, "")); if (k.length < 3) return null;
+    hit = FERMATE.filter((f) => f.k === k);
+    if (!hit.length) hit = FERMATE.filter((f) => f.k.startsWith(k));
+    if (new Set(hit.map((h) => h.k)).size > 1) return null; // nome ambiguo: nessuna proposta
+  }
+  if (!hit.length) return null;
+  const linee = [...new Set(hit.flatMap((h) => h.l))].sort((a, b) => a.length - b.length || a.localeCompare(b));
+  return { name: hit[0].n, linee };
+}
+function lineeScritte() { return ($("#f_linee_interessate").value || "").split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean); }
+function suggerisciLinee() {
+  const row = $("#row_linee_interessate"), af = $("#f_altezza_fermata"); if (!row || !af) return;
+  let box = $("#suggLinee");
+  if (!box) {
+    box = document.createElement("div"); box.id = "suggLinee"; box.className = "sugglinee"; box.hidden = true; row.appendChild(box);
+    box.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-l]"); if (!b) return;
+      const cur = lineeScritte(), up = new Set(cur.map((x) => x.toUpperCase()));
+      const add = b.dataset.l === "*" ? JSON.parse(box.dataset.all) : [b.dataset.l];
+      for (const l of add) if (!up.has(l.toUpperCase())) { cur.push(l); up.add(l.toUpperCase()); }
+      $("#f_linee_interessate").value = cur.join(", "); onEdit(); suggerisciLinee();
+    });
+  }
+  const txt = af.value.trim(); if (!txt) { box.hidden = true; return; }
+  caricaFermate().then(() => {
+    const r = lineeFermata(txt); if (!r || !r.linee.length) { box.hidden = true; return; }
+    const cur = new Set(lineeScritte().map((x) => x.toUpperCase()));
+    const mancano = r.linee.filter((l) => !cur.has(l.toUpperCase()));
+    box.dataset.all = JSON.stringify(r.linee); box.hidden = false;
+    box.innerHTML = '<span class="sl">🚏 Alla fermata ' + esc(r.name) + " passano:</span>" +
+      r.linee.map((l) => '<button type="button" class="slc' + (cur.has(l.toUpperCase()) ? " on" : "") + '" data-l="' + esc(l) + '">' + esc(l) + "</button>").join("") +
+      (mancano.length > 1 ? '<button type="button" class="slc all" data-l="*">+ aggiungi tutte</button>' : "");
+  }).catch(() => { box.hidden = true; });
+}
 /* ---------- InVettura: compila vettura/linea/fermata dal vivo ---------- */
 function openLive(q) {
   closeLive();
@@ -1727,9 +1784,19 @@ window.addEventListener("message", (e) => {
   if (d.linea) { setLinea(d.linea); done.push("linea " + d.linea); }
   const af = $("#f_altezza_fermata");
   if (d.fermata && af && !af.value.trim()) { af.value = d.fermata + (d.fermataCodice ? " (" + d.fermataCodice + ")" : ""); done.push("fermata"); }
-  closeLive(); onEdit();
+  closeLive(); onEdit(); suggerisciLinee();
   toast("Compilato dal vivo: " + done.join(", "));
 });
+
+/* ---------- InVettura: avvisi sulle mie linee (anche fuori da "Mezzi live") ---------- */
+function ivLoad() { const fr = $("#ivFrame"); if (fr && !fr.src) fr.src = "invettura/?embed=1"; }
+window.addEventListener("message", (e) => {
+  if (e.origin !== location.origin || !e.data || e.data.type !== "invettura-alert") return;
+  toast("🚌 " + e.data.text);
+});
+setTimeout(() => { let on = false; try { on = localStorage.getItem("iv.notify") === "1"; } catch {} if (on) ivLoad(); }, 3000);
+
+document.addEventListener("input", (e) => { if (e.target && e.target.id === "f_altezza_fermata") { clearTimeout(suggerisciLinee.h); suggerisciLinee.h = setTimeout(suggerisciLinee, 400); } if (e.target && e.target.id === "f_linee_interessate") { clearTimeout(suggerisciLinee.h2); suggerisciLinee.h2 = setTimeout(suggerisciLinee, 400); } });
 /* ---------- navigazione ---------- */
 const TABS = [["scheda", "Scheda"], ["mezzi", "Mezzi live"], ["dev", "Deviazioni"], ["fon", "Fonogrammi"], ["turno", "Turno"], ["rub", "Rubrica"]];
 let tabOra = "scheda";
@@ -1740,7 +1807,7 @@ function vai(t) {
   const sch = t === "scheda";
   $("main").hidden = !sch; $("aside.archive").hidden = !sch; $(".tools").hidden = sch; $(".mbar").classList.toggle("off", !sch);
   if (t === "dev") renderDev(); if (t === "fon") renderFon(); if (t === "turno") renderTurno(); if (t === "rub") renderRub();
-  if (t === "mezzi") { const fr = $("#ivFrame"); if (!fr.src) fr.src = "invettura/?embed=1"; }
+  if (t === "mezzi") ivLoad();
   window.scrollTo({ top: 0 });
 }
 function buildTools() {
