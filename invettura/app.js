@@ -1172,6 +1172,8 @@ async function calcolaPerse(lines, dateStr, dalle, alle) {
         const endT = d.t + (P.off[P.off.length - 1] || 0) * 60;
         const a = agg.get(d.tid);
         if (d.t > t) return { d, s: 'futura' };
+        // partita prima che il ponte iniziasse a registrare: non possiamo saperlo
+        if (!a && st.since && d.t < st.since + 120) return { d, s: 'incerta' };
         if (!a) return { d, s: gpsOk ? 'persa' : 'incerta' };
         let late = null;
         // il feed indica la fermata VERSO cui va: la prima volta che la vediamo diretta alla fermata N, ha lasciato la N-1
@@ -1249,7 +1251,7 @@ async function renderPerse() {
   const T = testoPerse(r);
   html += `<div class="ptxt" style="white-space:pre-line">${esc(T.s)}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">${window.parent !== window ? `<button class="btn" id="pUse" style="padding:12px">Usa nella scheda</button>` : ''}<button class="btn ghost" id="pCopy" style="padding:12px">Copia testo</button></div>
-    <p class="note">Verde partita · rosso barrato non partita · arancio limitata (non ha raggiunto il capolinea) · giallo partita con oltre 5′ di ritardo · grigio dato incerto (GPS assente). Il risultato vale quanto i dati trasmessi dalle vetture: verifica sempre prima del fonogramma. Storico disponibile dal ${r.since ? new Date(r.since * 1000).toLocaleString('it', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}.</p>`;
+    <p class="note">Verde partita · rosso barrato non partita · arancio limitata (non ha raggiunto il capolinea) · giallo partita con oltre 5′ di ritardo · grigio dato incerto (GPS assente o corsa precedente all\u2019inizio dello storico). Il risultato vale quanto i dati trasmessi dalle vetture: verifica sempre prima del fonogramma. Storico disponibile dal ${r.since ? new Date(r.since * 1000).toLocaleString('it', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}.</p>`;
   box.innerHTML = html;
 }
 function initPerse() {
