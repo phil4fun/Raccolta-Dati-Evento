@@ -1153,11 +1153,16 @@ async function calcolaPerse(lines, dateStr, dalle, alle) {
   // aggrega lo storico per corsa
   const agg = new Map(), seenRoute = new Map();
   for (const [ts, rows] of st.snaps) for (const [trip, veh, seq, stop, vts] of rows) {
-    let a = agg.get(trip); if (!a) agg.set(trip, a = { veh, first: ts, last: ts, minSeq: seq || 99, maxSeq: seq || 0, lastStop: stop, move: null, stops: new Set() });
+    let a = agg.get(trip); if (!a) agg.set(trip, a = { veh, first: ts, last: ts, firstSeq: seq || 0, firstStop: stop, minSeq: seq || 99, maxSeq: seq || 0, lastStop: stop, move: null, stops: new Set() });
     if (stop) a.stops.add(stop);
     a.last = ts; a.veh = veh || a.veh; if (seq) { a.minSeq = Math.min(a.minSeq, seq); if (seq > a.maxSeq) { a.maxSeq = seq; a.lastStop = stop; } }
     if (!a.move && seq >= 2) a.move = { ts, seq };
   }
+  // corse di ogni vettura in ordine di tempo (serve a capire se e' arrivata al capolinea tra due registrazioni)
+  const nz = x => String(x ?? '').toUpperCase().replace(/^0+(?=.)/, ''), perVeh = new Map();
+  for (const a of agg.values()) { const k = nz(a.veh); if (!perVeh.has(k)) perVeh.set(k, []); perVeh.get(k).push(a); }
+  for (const l of perVeh.values()) l.sort((x, y) => x.first - y.first);
+  const dopo = a => { const l = perVeh.get(nz(a.veh)) || []; return l.find(b => b !== a && b.first > a.last) || null; };
   const dayOff = Math.round((midnight(new Date(from * 1000)).getTime() - midnight(new Date()).getTime()) / 86400000);
   const res = [];
   for (const short of lines) {
@@ -1197,7 +1202,11 @@ async function calcolaPerse(lines, dateStr, dalle, alle) {
         // Arrivata se e' stata vista all'ultima fermata o diretta verso di essa (il feed indica la prossima fermata):
         // cosi' una vettura che arriva e sparisce tra due registrazioni non risulta limitata per errore.
         const ended = t > endT + 15 * 60, n = P.st.length, capo = P.st[n - 1];
-        const arrivata = a.maxSeq >= n || a.stops.has(capo);
+        // oppure: era quasi arrivata (ultime 5 fermate) e poco dopo la stessa vettura compare sulla corsa successiva
+        // ferma proprio a quel capolinea (il GPS ha cambiato corsa tra una registrazione e l'altra, ogni 3 minuti)
+        const b = dopo(a);
+        const ripartita = !!b && b.firstStop === capo && n - a.maxSeq <= 5 && b.first - a.last <= 12 * 60;
+        const arrivata = a.maxSeq >= n || a.stops.has(capo) || ripartita;
         if (ended && !arrivata) return { d, s: 'limitata', veh: a.veh };
         return { d, s: late ? 'ritardo' : 'partita', veh: a.veh, late };
       });
