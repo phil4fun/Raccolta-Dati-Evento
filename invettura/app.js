@@ -843,7 +843,7 @@ function lineCard(short) {
 }
 function notifyBox() {
   const perm = 'Notification' in window ? Notification.permission : 'unsupported';
-  const note = !S.notify ? 'Ti avviso quando sulle linee qui sotto ci sono vetture accodate o un buco di servizio.'
+  const note = !S.notify ? 'Ti avviso quando sulle linee qui sotto ci sono vetture accodate, un buco di servizio o una corsa particolare (deviata, scolastica, da garantire) che non risulta partita.'
     : perm === 'granted' ? 'Attivi: controllo ogni minuto mentre l\u2019app \u00e8 aperta, anche se sei in un\u2019altra sezione.'
     : perm === 'denied' ? 'Attivi solo dentro l\u2019app: le notifiche del telefono sono bloccate nelle impostazioni.'
     : 'Attivi dentro l\u2019app (messaggio in basso). Per le notifiche del telefono installa l\u2019app sulla schermata Home.';
@@ -997,7 +997,8 @@ async function monitorLines() {
   if (!S.notify || !S.myLines.length || document.hidden) return;
   try { await Promise.all([refreshTrips(false), refreshVehicles(false), ...S.myLines.map(l => sdLine(l).catch(() => null)), sdCal().catch(() => null)]); } catch (e) { return; }
   const t = now();
-  for (const [k, ts] of S.alertSeen) if (t - ts > 1800) S.alertSeen.delete(k);
+  for (const [k, ts] of S.alertSeen) if (t - ts > 1800 && !k.startsWith('pt|')) S.alertSeen.delete(k);
+  try { await controllaParticolari(t); } catch (e) {}
   for (const short of S.myLines) {
     const parts = [];
     for (let d = 0; d < dirCount(short); d++) {
@@ -1013,6 +1014,31 @@ async function monitorLines() {
     S.alertLine.set(short, t);
     sendAlert(short, `Linea ${short} ${parts.join(' \u00b7 ')}`);
   }
+}
+// Corse particolari (deviate, scolastiche, da garantire) delle mie linee: avviso se non risultano partite.
+// Servono le tabelle di marcia importate (tabelle-per-RDE.json), che indicano orario e tipo di ogni corsa particolare.
+S.ptSeen = new Map(); S.abbCache = new Map();
+async function controllaParticolari(t) {
+  for (const v of S.vehicles || []) if (v.trip) S.ptSeen.set(v.trip, t);
+  for (const [k, ts] of S.ptSeen) if (t - ts > 4 * 3600) S.ptSeen.delete(k);
+  const arch = await tabelleSalvate();
+  for (const short of S.myLines) {
+    const tabs = arch[String(short).toUpperCase()]; if (!tabs || !tabs.length) continue;
+    let c = S.abbCache.get(short);
+    if (!c || t - c.ts > 1800) { const L = await sdLine(short); if (!L) continue; c = { ts: t, abb: abbinaTabelle(L, 0, tabs) }; S.abbCache.set(short, c); }
+    for (const v of c.abb.values()) {
+      for (const [min, descr, da] of (v.tab && v.tab.pt) || []) {
+        if (/scolastica/.test(descr) && !giornoScuola(t * 1000)) continue;
+        const d = (v.deps || []).find(x => Math.abs(((minDi(x.t) - min) + 1440 + 720) % 1440 - 720) <= 1);
+        if (!d || t < d.t + 6 * 60 || t > d.t + 30 * 60) continue;
+        const key = 'pt|' + d.tid + '|' + d.t;
+        if (S.ptSeen.has(d.tid) || S.alertSeen.has(key)) continue;
+        S.alertSeen.set(key, t);
+        sendAlert(short, `\u26a0\ufe0f ${short}/${v.n}\u00b0: corsa particolare non risulta partita \u2013 ${descr} (da ${da}). Verifica: potrebbe anche essere il GPS della vettura.`);
+      }
+    }
+  }
+  for (const [k, ts] of S.alertSeen) if (k.startsWith('pt|') && t - ts > 6 * 3600) S.alertSeen.delete(k);
 }
 async function toggleNotify() {
   S.notify = !S.notify;
@@ -1051,6 +1077,20 @@ async function leggiTabellaPdf(buf, name) {
   const info = infoNomeTabella(name) || {};
   return { file: name, ...info, tabs };
 }
+// Calendario scolastico del Lazio (giorni senza lezioni: le corse scolastiche non sono dovute)
+const SCUOLA = [
+  { dal: '2026-09-15', al: '2027-06-08', chiuso: [['2026-12-23', '2027-01-06'], ['2027-02-08', '2027-02-09'], ['2027-03-25', '2027-03-30'],
+    ['2026-11-01', '2026-11-01'], ['2026-12-08', '2026-12-08'], ['2027-04-25', '2027-04-25'], ['2027-05-01', '2027-05-01'], ['2027-06-02', '2027-06-02']] },
+];
+function giornoScuola(dt) {
+  const d = new Date(dt), p = x => String(x).padStart(2, '0'), k = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  if (d.getDay() === 0) return false;
+  const a = SCUOLA.find(x => k >= x.dal && k <= x.al);
+  return !!a && !a.chiuso.some(([x, y]) => k >= x && k <= y);
+}
+const minDi = t => { const x = new Date(t * 1000); return x.getHours() * 60 + x.getMinutes(); };
+// la partenza e' una corsa scolastica dell'orario abbinato? (tabelle-per-RDE.json: tabs[].sc = minuti delle partenze)
+const eScolastica = (v, t) => !!(v && v.tab && v.tab.sc && v.tab.sc.some(m => Math.abs(((m - minDi(t)) + 1440 + 720) % 1440 - 720) <= 1));
 // Abbina i turni macchina della linea (giorno 'day' rispetto a oggi) alle tabelle importate.
 // Restituisce Map(prefisso turno -> {n, file, prog: Map(tid -> n. corsa)})
 function abbinaTabelle(L, day, tabelle) {
@@ -1065,9 +1105,9 @@ function abbinaTabelle(L, day, tabelle) {
     let best = null;
     for (const T of tabelle) for (const tab of T.tabs) {
       const set = new Set(tab.t); const hit = mins.filter(m => set.has(m)).length / mins.length;
-      if (!best || hit > best.hit) best = { hit, n: tab.n, file: T.file };
+      if (!best || hit > best.hit) best = { hit, n: tab.n, file: T.file, tab };
     }
-    if (best && best.hit >= 0.8) out.set(k, { n: best.n, file: best.file, hit: best.hit, prog: new Map(deps.map((d, i) => [d.tid, i + 1])) });
+    if (best && best.hit >= 0.8) out.set(k, { n: best.n, file: best.file, hit: best.hit, tab: best.tab, deps, prog: new Map(deps.map((d, i) => [d.tid, i + 1])) });
   }
   return out;
 }
@@ -1194,6 +1234,7 @@ async function calcolaPerse(lines, dateStr, dalle, alle) {
         if (d.t > t) return { d, s: 'futura' };
         // partita prima che il ponte iniziasse a registrare: non possiamo saperlo
         if (!a && st.since && d.t < st.since + 120) return { d, s: 'incerta' };
+        if (!a && eScolastica(abb.get(d.tid.split('-')[0]), d.t) && !giornoScuola(d.t * 1000)) return { d, s: 'noscuola' };
         if (!a) return { d, s: gpsOk ? 'persa' : 'incerta' };
         let late = null;
         // il feed indica la fermata VERSO cui va: la prima volta che la vediamo diretta alla fermata N, ha lasciato la N-1
@@ -1252,7 +1293,7 @@ async function renderPerse() {
   let html = '';
   for (const l of r.res) {
     if (l.err) { html += `<div class="alert">${esc(l.short)}: ${esc(l.err)}</div>`; continue; }
-    const all = l.dirs.flatMap(d => d.items).filter(x => x.s !== 'futura');
+    const all = l.dirs.flatMap(d => d.items).filter(x => x.s !== 'futura' && x.s !== 'noscuola');
     const c = k => all.filter(x => x.s === k).length;
     html += `<h2 style="display:flex;align-items:center;gap:8px">${badgeShort(l.short)} Linea ${esc(l.short)}</h2>`;
     html += l.tabImp ? `<p class="note" style="margin:0 4px 8px">Tabelle di marcia: ${l.tabOk} turni su ${l.tabTot} riconosciuti${l.tabOk < l.tabTot ? ' (importa la tabella del tipo di giorno giusto per gli altri)' : ''}.</p>`
@@ -1268,6 +1309,7 @@ async function renderPerse() {
         if (x.s === 'persa') return `<span class="ko" title="non partita">${tt}</span>`;
         if (x.s === 'limitata') return `<span class="li" title="limitata: non ha raggiunto il capolinea">${tt} · ${esc(x.veh || '?')} · limitata</span>`;
         if (x.s === 'incerta') return `<span class="un" title="dato incerto">${tt} · ?</span>`;
+        if (x.s === 'noscuola') return `<span class="fu" title="corsa scolastica: oggi non c'e' scuola, non era dovuta">${tt} · scolastica</span>`;
         return `<span class="fu" title="non ancora partita">${tt}</span>`;
       }).join('') + `</div>`;
     }
@@ -1275,7 +1317,7 @@ async function renderPerse() {
   const T = testoPerse(r);
   html += `<div class="ptxt" style="white-space:pre-line">${esc(T.s)}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">${window.parent !== window ? `<button class="btn" id="pUse" style="padding:12px">Usa nella scheda</button>` : ''}<button class="btn ghost" id="pCopy" style="padding:12px">Copia testo</button></div>
-    <p class="note">Verde partita · rosso barrato non partita · arancio limitata (non ha raggiunto il capolinea) · giallo partita con oltre 5′ di ritardo · grigio dato incerto (GPS assente o corsa precedente all\u2019inizio dello storico). Il risultato vale quanto i dati trasmessi dalle vetture: verifica sempre prima del fonogramma. Storico disponibile dal ${r.since ? new Date(r.since * 1000).toLocaleString('it', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}.</p>`;
+    <p class="note">Verde partita · rosso barrato non partita · arancio limitata (non ha raggiunto il capolinea) · giallo partita con oltre 5′ di ritardo · grigio dato incerto (GPS assente o corsa precedente all\u2019inizio dello storico) · "scolastica": corsa dei soli giorni di scuola, non dovuta in quel giorno (non conta come persa). Il risultato vale quanto i dati trasmessi dalle vetture: verifica sempre prima del fonogramma. Storico disponibile dal ${r.since ? new Date(r.since * 1000).toLocaleString('it', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}.</p>`;
   box.innerHTML = html;
 }
 function initPerse() {
