@@ -179,6 +179,9 @@ def main():
     dump('index.json', {'feed': feed, 'lines': index})
     dump('cal.json', {d: sorted(active[d]) for d in ds})
     dump('stops.json', {s: sorted(v) for s, v in stop_lines.items()})
+    # per RDE: nome fermata e linee che ci passano (proposte per "Linee interessate")
+    nat = lambda x: (len(x), x)
+    dump('fermate.json', sorted([s, stop_name.get(s, s), sorted(v, key=nat)] for s, v in stop_lines.items()))
     print(f'{len(index)} linee scritte in {out}', file=sys.stderr)
 
 
