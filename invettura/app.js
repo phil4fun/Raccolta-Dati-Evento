@@ -666,7 +666,7 @@ const dayKey = d => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0
 const SD = { index: null, cal: null, stops: null, idx: null, calV: null, stopsV: null, lines: new Map(), lineV: new Map(), byShort: new Map() };
 async function getJSON(p) { const r = await fetch(`${DATA}/${p}?v=${dayKey(new Date())}`); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }
 function sdOnce(k, p, after) {
-  if (!SD[k]) SD[k] = getJSON(p).then(j => { after(j); return j; }).catch(e => { SD[k] = null; throw e; });
+  if (!SD[k]) SD[k] = getJSON(p).then(j => { SD.fail = false; after(j); return j; }).catch(e => { SD[k] = null; SD.fail = true; throw e; });
   return SD[k];
 }
 const sdIndex = () => sdOnce('index', 'index.json', j => { SD.idx = j; SD.byShort = new Map(j.lines.map(l => [l.s.toUpperCase(), l])); });
@@ -697,7 +697,9 @@ function departures(L, di, day = 0) {
       if (!back || t >= midnight(new Date(), day).getTime() / 1000) out.push({ t, pat, tid });
     }
   }
-  return out.sort((a, b) => a.t - b.t);
+  // la stessa corsa può comparire nel servizio di ieri (oltre le 24) e in quello di oggi: una sola volta
+  const seen = new Set();
+  return out.sort((a, b) => a.t - b.t).filter(d => { const k = d.t + '|' + d.pat; if (seen.has(k)) return false; seen.add(k); return true; });
 }
 const hhmm = t => new Date(t * 1000).toLocaleTimeString('it', { hour: '2-digit', minute: '2-digit' });
 function badgeShort(short) {
@@ -725,7 +727,8 @@ function stopSched(stopId) {
         const off = posIn[dep.pat]; if (off == null) continue;
         const at = dep.t + off * 60;
         if (at < t - 60 || at > t + 120 * 60) continue;
-        out.push({ time: at, short, head: d.h || d.tn, tid: dep.tid, sched: true });
+        if (out.some(o => o.short === short && o.time === at && o.di === di)) continue;
+        out.push({ time: at, short, head: d.h || d.tn, tid: dep.tid, sched: true, di });
       }
     });
   }
@@ -856,7 +859,7 @@ function renderLinesHome() {
     : `<div class="empty">Cerca una linea per vedere capolinea, fermate, partenze e vetture in servizio.<br>Con la ☆ la aggiungi a <b>Le mie linee</b> per monitorarle tutte insieme.</div>`;
 }
 async function openLine(short) {
-  S.line = short; S.lineDir = 0; S.lineTab = null; S.lineDay = 0;
+  S.line = short; S.lineDir = 0; S.lineTab = null; S.lineDay = 0; S.lineDirChosen = false;
   $('#linee-home').hidden = true; $('#linee-line').hidden = false;
   history.pushState({ line: short }, '', '#linea-' + encodeURIComponent(short));
   renderLine(); tick(true);
@@ -874,17 +877,20 @@ function renderLine() {
   const n = dirCount(short);
   const ms = [...Array(n)].map((_, d) => buildLine(short, d));
   if (S.lineDir >= n) S.lineDir = 0;
+  // finché non scegli tu, parte dalla direzione con vetture in tempo reale
+  if (!S.lineDirChosen && !ms[S.lineDir].all.length) { const k = ms.findIndex(x => x.all.length); if (k >= 0) S.lineDir = k; }
   const m = ms[S.lineDir], L = m.L, t = now();
   const on = S.myLines.includes(short);
   const live = m.all.length > 0;
   const tab = S.lineTab || (live || !L ? 'schema' : 'partenze');
   const nextDep = di => { const d = L ? departures(L, di, 0).find(x => x.t >= t - 30) : null; return d ? hhmm(d.t) : null; };
   const dirCard = (x, i) => {
-    const D = x.D, from = D ? D.fn : (i === 0 ? 'Andata' : 'Ritorno'), to = D ? D.tn : (x.head || '');
-    const nd = nextDep(i);
+    const D = x.D, nd = nextDep(i);
+    const names = D ? `<small>Da</small><b>${esc(D.fn)}</b><small>verso</small><b>${esc(D.tn)}</b>`
+      : `<small>Dir.</small><b>${i + 1}</b><small>verso</small><b>${esc(x.head || 'destinazione non nota')}</b>`;
     return `<button class="dirc ${i === S.lineDir ? 'on' : ''}" data-dir="${i}">
       <span class="dk">${i === S.lineDir ? '◉' : '○'}</span>
-      <span class="dt"><small>Da</small><b>${esc(from)}</b><small>verso</small><b>${esc(to)}</b></span>
+      <span class="dt">${names}</span>
       <span class="dm">${x.all.length ? `<span class="lv">● ${x.all.length} live</span>` : '<span class="nl">no live</span>'}${nd ? `<span>prossima ${nd}</span>` : ''}</span></button>`;
   };
   const ds = m.vehs.map(v => v.delay).filter(x => x != null);
@@ -892,7 +898,7 @@ function renderLine() {
   let html = `<button class="back" id="lback">‹ Linee</button>
     <div style="display:flex;align-items:center;gap:10px;margin:8px 0 2px">${badgeShort(short)}<div style="flex:1;font-weight:800;font-size:18px">Linea ${esc(short)}</div>
     <button class="star ${on ? 'on' : ''}" data-myline="${esc(short)}" style="font-size:24px">${on ? '★' : '☆'}</button></div>
-    <h2>${n > 1 ? 'Scegli il capolinea di partenza' : 'Percorso'}</h2>
+    <h2>${n > 1 ? 'Scegli il capolinea di partenza' : 'Percorso'}</h2>${!L && SD.fail ? '<p class="note" style="margin:0 4px 8px">Nomi dei capolinea e orari arriveranno col primo aggiornamento notturno dei dati.</p>' : ''}
     <div class="dirs">${ms.map(dirCard).join('')}</div>`;
   if (!live && S.tuTs) html += `<div class="alert" style="margin-top:10px">🕒 <b style="display:inline">Nessun dato in tempo reale</b> per questa direzione: ${L ? 'mostro gli orari programmati.' : 'orari programmati non ancora disponibili.'}</div>`;
   if (live) html += `<div class="sum"><div><b>${m.all.length}</b><span>vetture</span></div><div><b class="${delayCls(avg)}">${avg != null ? fmtDelay(avg) : '—'}</b><span>ritardo medio</span></div><div><b>${m.med != null ? Math.round(m.med) + '′' : '—'}</b><span>distacco tipico</span></div></div>`;
@@ -921,7 +927,7 @@ function renderLine() {
       html += `</div><p class="note">🚌 bordo pieno = in fermata · tratteggiato = in arrivo · ⚠ accodata · ⦸ senza segnale da oltre 5 minuti${deps.length ? ' · 🕒 orario programmato' : ''}.</p>`;
     }
   } else if (tab === 'partenze') {
-    if (!L) html += `<div class="empty">${SD.idx ? 'Orari programmati non disponibili per questa linea.' : 'Carico gli orari…'}</div>`;
+    if (!L) html += `<div class="empty">${SD.idx ? 'Orari programmati non disponibili per questa linea.' : SD.fail ? 'Orari programmati non ancora pronti: il primo aggiornamento notturno su GitHub non è ancora stato eseguito.' : 'Carico gli orari…'}</div>`;
     else {
       const deps = departures(L, S.lineDir, S.lineDay);
       const liveBy = new Map(m.all.map(v => [v.tu.trip?.trip_id, v]));
@@ -998,7 +1004,7 @@ function toggleFav(id) {
 document.addEventListener('click', e => {
   const f = e.target.closest('[data-fav]'); if (f) { e.stopPropagation(); toggleFav(f.dataset.fav); return; }
   const ml = e.target.closest('[data-myline]'); if (ml) { e.stopPropagation(); toggleMyLine(ml.dataset.myline); return; }
-  const dr = e.target.closest('[data-dir]'); if (dr) { S.lineDir = +dr.dataset.dir; S.lineTab = null; renderLine(); return; }
+  const dr = e.target.closest('[data-dir]'); if (dr) { S.lineDir = +dr.dataset.dir; S.lineDirChosen = true; S.lineTab = null; renderLine(); return; }
   const dy = e.target.closest('[data-lday]'); if (dy) { S.lineDay = +dy.dataset.lday; renderLine(); return; }
   const lt = e.target.closest('[data-ltab]'); if (lt) {
     if (lt.dataset.ltab === 'mappa') { $('#lineFilter').value = S.line; S.fitFilter = null; switchView('mappa'); return; }
