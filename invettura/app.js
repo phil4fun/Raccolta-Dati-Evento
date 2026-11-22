@@ -841,6 +841,14 @@ function lineCard(short) {
   return `<div class="card" data-line="${esc(short)}">${badgeShort(short)}<div class="grow"><div class="t">${esc(lineTitle(short))}</div><div class="s">${det}</div>${warn ? `<div style="margin-top:4px">${warn}</div>` : ''}</div>
     <button class="star ${on ? 'on' : ''}" data-myline="${esc(short)}">${on ? '★' : '☆'}</button></div>`;
 }
+function notifyBox() {
+  const perm = 'Notification' in window ? Notification.permission : 'unsupported';
+  const note = !S.notify ? 'Ti avviso quando sulle linee qui sotto ci sono vetture accodate o un buco di servizio.'
+    : perm === 'granted' ? 'Attivi: controllo ogni minuto mentre l\u2019app \u00e8 aperta, anche se sei in un\u2019altra sezione.'
+    : perm === 'denied' ? 'Attivi solo dentro l\u2019app: le notifiche del telefono sono bloccate nelle impostazioni.'
+    : 'Attivi dentro l\u2019app (messaggio in basso). Per le notifiche del telefono installa l\u2019app sulla schermata Home.';
+  return `<div class="nbox ${S.notify ? 'on' : ''}"><button class="btn ${S.notify ? '' : 'ghost'}" id="notifyBtn">${S.notify ? '\ud83d\udd14 Avvisi attivi' : '\ud83d\udd15 Attiva avvisi'}</button><span>${note}</span></div>`;
+}
 function renderLinesHome() {
   if (!SD.idx) sdIndex().then(() => { if (S.view === 'linee' && !S.line) renderLinesHome(); }).catch(() => {});
   const q = $('#lq').value.trim().toUpperCase();
@@ -855,7 +863,7 @@ function renderLinesHome() {
   }
   if (S.myLines.length && !S.byTrip.size && !S.lineLoading) { S.lineLoading = true; Promise.all([refreshTrips(true), refreshVehicles(true)]).then(renderLinesHome).catch(() => {}).finally(() => { S.lineLoading = false; }); }
   el.innerHTML = S.myLines.length
-    ? `<h2>Le mie linee · monitoraggio</h2><div class="list">${S.myLines.map(lineCard).join('')}</div><p class="note">Accodata: meno di 3 minuti dalla vettura davanti. Buco: distacco oltre il doppio del normale (almeno 20 minuti). Dati aggiornati ogni 20 secondi.</p>`
+    ? `<h2>Le mie linee · monitoraggio</h2>${notifyBox()}<div class="list">${S.myLines.map(lineCard).join('')}</div><p class="note">Accodata: meno di 3 minuti dalla vettura davanti. Buco: distacco oltre il doppio del normale (almeno 20 minuti). Dati aggiornati ogni 20 secondi.</p>`
     : `<div class="empty">Cerca una linea per vedere capolinea, fermate, partenze e vetture in servizio.<br>Con la ☆ la aggiungi a <b>Le mie linee</b> per monitorarle tutte insieme.</div>`;
 }
 async function openLine(short) {
@@ -966,6 +974,55 @@ function toggleMyLine(short) {
   if (S.line) renderLine(); else renderLinesHome();
 }
 
+
+/* ---------------- Avvisi sulle mie linee (accodamenti e buchi) ---------------- */
+S.notify = (() => { try { return localStorage.getItem('iv.notify') === '1'; } catch (e) { return false; } })();
+S.alertSeen = new Map(); S.alertLine = new Map();
+function ivToast(text) {
+  let t = document.getElementById('ivtoast');
+  if (!t) { t = document.createElement('div'); t.id = 'ivtoast'; t.className = 'ivtoast'; document.body.appendChild(t); }
+  t.textContent = text; t.classList.add('on'); clearTimeout(ivToast.h); ivToast.h = setTimeout(() => t.classList.remove('on'), 8000);
+}
+async function sendAlert(line, text) {
+  if (window.parent !== window) window.parent.postMessage({ type: 'invettura-alert', line, text }, location.origin);
+  else ivToast(text);
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const opt = { body: text, tag: 'iv-' + line, renotify: true, icon: (window.INVETTURA_API ? '../' : '/') + 'icon-192.png' };
+  try {
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    if (reg) await reg.showNotification('InVettura \u00b7 Linea ' + line, opt); else new Notification('InVettura \u00b7 Linea ' + line, opt);
+  } catch (e) { try { new Notification('InVettura \u00b7 Linea ' + line, opt); } catch (e2) {} }
+}
+async function monitorLines() {
+  if (!S.notify || !S.myLines.length || document.hidden) return;
+  try { await Promise.all([refreshTrips(false), refreshVehicles(false), ...S.myLines.map(l => sdLine(l).catch(() => null)), sdCal().catch(() => null)]); } catch (e) { return; }
+  const t = now();
+  for (const [k, ts] of S.alertSeen) if (t - ts > 1800) S.alertSeen.delete(k);
+  for (const short of S.myLines) {
+    const parts = [];
+    for (let d = 0; d < dirCount(short); d++) {
+      const m = buildLine(short, d), fresh = [];
+      m.vehs.forEach((v, i) => {
+        if (v.bunch) { const a = m.vehs[i - 1]; const k = `${short}|${d}|q|${a?.label}|${v.label}`; if (!S.alertSeen.has(k)) { fresh.push(`${a?.label} e ${v.label} accodate (${Math.round(v.gap)}\u2032)`); } S.alertSeen.set(k, t); }
+        if (v.hole) { const k = `${short}|${d}|h|${v.label}`; if (!S.alertSeen.has(k)) { fresh.push(`buco di ${Math.round(v.gap)}\u2032 prima della ${v.label}`); } S.alertSeen.set(k, t); }
+      });
+      if (fresh.length) parts.push(`\u2192 ${m.D?.tn || m.head || 'dir. ' + (d + 1)}: ` + fresh.join(', '));
+    }
+    if (!parts.length) continue;
+    if (t - (S.alertLine.get(short) || 0) < 600) continue; // al massimo un avviso ogni 10 minuti per linea
+    S.alertLine.set(short, t);
+    sendAlert(short, `Linea ${short} ${parts.join(' \u00b7 ')}`);
+  }
+}
+async function toggleNotify() {
+  S.notify = !S.notify;
+  try { localStorage.setItem('iv.notify', S.notify ? '1' : '0'); } catch (e) {}
+  if (S.notify && 'Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (e) {} }
+  if (S.notify) { S.alertSeen.clear(); monitorLines(); }
+  renderLinesHome();
+}
+setInterval(monitorLines, 60000);
+setTimeout(monitorLines, 8000);
 /* ---------------- Scelta vettura per la scheda evento (RDE) ---------------- */
 function pickData(label) {
   const v = S.vehicles.find(x => x.label === label);
@@ -1017,6 +1074,7 @@ document.addEventListener('click', e => {
   const st = e.target.closest('[data-stop]'); if (st) { if (S.view !== 'attese') switchView('attese'); openStop(st.dataset.stop); return; }
   const vh = e.target.closest('[data-veh]'); if (vh) { focusVehicle(vh.dataset.veh); return; }
   const nb = e.target.closest('nav button'); if (nb) { switchView(nb.dataset.v); return; }
+  if (e.target.closest('#notifyBtn')) { toggleNotify(); return; }
   if (e.target.id === 'back' || e.target.id === 'lback') history.back();
 });
 window.addEventListener('popstate', () => { if (S.view === 'linee' && S.line) closeLine(); else if (S.stop) closeStop(); });

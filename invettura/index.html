@@ -140,6 +140,12 @@ html.embed .loading{position:absolute}
 .sum div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
 .sum b{display:block;font-size:20px}.sum span{font-size:11px;color:var(--muted)}
 .vm.stale{opacity:.4}
+.nbox{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.nbox.on{border-color:var(--accent);background:var(--accent-soft)}
+.nbox .btn{padding:10px 12px;flex:none}
+.nbox span{font-size:12px;color:var(--muted);line-height:1.4}
+.ivtoast{position:fixed;left:12px;right:12px;bottom:calc(70px + env(safe-area-inset-bottom));z-index:3000;background:var(--accent);color:var(--accent-ink);border-radius:12px;padding:12px 14px;font-size:14px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.3);transform:translateY(150%);transition:transform .3s}
+.ivtoast.on{transform:none}
 .dirs{display:flex;flex-direction:column;gap:8px}
 .dirc{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:12px 14px;font:inherit;color:var(--text);cursor:pointer}
 .dirc.on{border-color:var(--accent);background:var(--accent-soft)}
@@ -252,6 +258,6 @@ html.embed .loading{position:absolute}
 
 <script>window.INVETTURA_API = 'https://invettura.fili979.workers.dev';</script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="app.js?v=mwr3a472"></script>
+<script src="app.js?v=mwr3v39p"></script>
 </body>
 </html>
