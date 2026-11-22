@@ -503,13 +503,16 @@ function openStop(id) {
   S.stop = S.stopById.get(id); if (!S.stop) return;
   $('#attese-home').hidden = true; $('#attese-stop').hidden = false;
   history.pushState({ stop: id }, '', '#fermata-' + encodeURIComponent(id));
-  renderStop(); tick(true);
+  renderStop(); tick(true); loadStopSched(id);
 }
 function closeStop() { S.stop = null; $('#attese-home').hidden = false; $('#attese-stop').hidden = true; renderHome(); }
 function renderStop() {
   const s = S.stop; if (!s) return;
   const t = now();
-  const arr = (S.byStop.get(s.id) || []).filter(a => a.time > t - 60 && a.time < t + 120 * 60).sort((a, b) => a.time - b.time).slice(0, 25);
+  const liveArr = (S.byStop.get(s.id) || []).filter(a => a.time > t - 60 && a.time < t + 120 * 60);
+  const liveTrips = new Set(liveArr.map(a => a.trip?.trip_id));
+  const sched = stopSched(s.id).filter(a => !liveTrips.has(a.tid) && !S.byTrip.has(a.tid));
+  const arr = liveArr.concat(sched).sort((a, b) => a.time - b.time).slice(0, 30);
   const rids = new Set(arr.map(a => routeOfTrip(a.trip)));
   const alerts = S.alerts.filter(a => a.stops.includes(s.id) || a.routes.some(r => rids.has(r))).slice(0, 8);
   const fav = S.fav.includes(s.id);
@@ -518,9 +521,16 @@ function renderStop() {
     <button class="star ${fav ? 'on' : ''}" data-fav="${esc(s.id)}" style="font-size:26px">${fav ? '★' : '☆'}</button></div>`;
   if (alerts.length) html += `<details class="alert"><summary><b style="display:inline">⚠ ${alerts.length === 1 ? '1 avviso' : alerts.length + ' avvisi'} su questa fermata o linee</b></summary>` +
     alerts.map(a => `<div style="margin-top:8px"><b>${esc(a.header || 'Avviso')}</b>${esc((a.desc || '').slice(0, 400))}</div>`).join('') + `</details>`;
-  if (!S.tuTs) html += `<div class="empty">Carico i tempi di attesa…</div>`;
-  else if (!arr.length) html += `<div class="empty">Nessun passaggio previsto in tempo reale nelle prossime due ore.</div>`;
+  if (!S.tuTs && !arr.length) html += `<div class="empty">Carico i tempi di attesa…</div>`;
+  else if (!arr.length) html += `<div class="empty">Nessun passaggio previsto nelle prossime due ore.</div>`;
   else html += `<div class="list">` + arr.map(a => {
+    if (a.sched) {
+      const m = Math.round((a.time - t) / 60);
+      return `<div class="arr sch" data-line="${esc(a.short)}" style="cursor:pointer">${badgeShort(a.short)}
+      <div class="grow" style="flex:1;min-width:0"><div class="t" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">→ ${esc(a.head)}</div>
+      <div class="s" style="font-size:12px;color:var(--muted)">🕒 programmato · ${hhmm(a.time)}</div></div>
+      <div class="min">${m <= 0 ? 'ora' : m}${m > 0 ? '<small>min</small>' : ''}</div></div>`;
+    }
     const rid = routeOfTrip(a.trip), m = Math.round((a.time - t) / 60);
     const hs = headsign(a.trip?.trip_id);
     const vid = a.veh?.label || a.veh?.id;
@@ -530,7 +540,7 @@ function renderStop() {
       <div class="s" style="font-size:12px;color:var(--muted)"><span class="rt">● live</span>${vid ? ' · vettura ' + esc(vid) : ''} · ${clock}</div></div>
       <div class="min ${m <= 1 ? 'now' : ''}">${m <= 0 ? 'ora' : m}${m > 0 ? '<small>min</small>' : ''}</div></div>`;
   }).join('') + `</div>`;
-  html += `<p class="note">Si aggiorna da solo ogni 20 secondi. Tocca un passaggio per vedere la vettura sulla mappa.</p>`;
+  html += `<p class="note">● live = previsione in tempo reale, si aggiorna ogni 20 secondi (tocca per vedere la vettura sulla mappa). 🕒 programmato = orario ufficiale per le corse senza dati in tempo reale (tocca per la linea).</p>`;
   $('#attese-stop').innerHTML = html;
 }
 
@@ -650,11 +660,83 @@ function renderVehicle() {
   }).join('');
 }
 
-/* ---------------- Views: Linee (schema + monitoraggio) ---------------- */
+/* ---------------- Dati programmati (preparati ogni notte da GitHub) ---------------- */
+const DATA = (window.INVETTURA_DATA || 'data').replace(/\/$/, '');
+const dayKey = d => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+const SD = { index: null, cal: null, stops: null, idx: null, calV: null, stopsV: null, lines: new Map(), lineV: new Map(), byShort: new Map() };
+async function getJSON(p) { const r = await fetch(`${DATA}/${p}?v=${dayKey(new Date())}`); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }
+function sdOnce(k, p, after) {
+  if (!SD[k]) SD[k] = getJSON(p).then(j => { after(j); return j; }).catch(e => { SD[k] = null; throw e; });
+  return SD[k];
+}
+const sdIndex = () => sdOnce('index', 'index.json', j => { SD.idx = j; SD.byShort = new Map(j.lines.map(l => [l.s.toUpperCase(), l])); });
+const sdCal = () => sdOnce('cal', 'cal.json', j => { SD.calV = j; });
+const sdStops = () => sdOnce('stops', 'stops.json', j => { SD.stopsV = j; });
+async function sdLine(short) {
+  await sdIndex();
+  const e = SD.byShort.get(String(short).toUpperCase()); if (!e) return null;
+  if (!SD.lines.has(e.k)) SD.lines.set(e.k, getJSON('l/' + e.k + '.json').then(j => {
+    j.tripDir = new Map(); j.tripPat = new Map();
+    j.dirs.forEach((d, di) => { for (const list of Object.values(d.svc)) for (const [, p, tid] of list) { j.tripDir.set(tid, di); j.tripPat.set(tid, p); } });
+    SD.lineV.set(e.k, j); return j;
+  }).catch(() => { SD.lines.delete(e.k); return null; }));
+  return SD.lines.get(e.k);
+}
+const lineData = short => { const e = SD.byShort.get(String(short).toUpperCase()); return e ? SD.lineV.get(e.k) || null : null; };
+const midnight = (d, add = 0) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() + add); return x; };
+// partenze programmate di una direzione per il giorno 'day' (0 = oggi): [{t (epoch s), pat, tid}]
+function departures(L, di, day = 0) {
+  if (!L || !SD.calV) return [];
+  const out = [], d = L.dirs[di];
+  for (const back of [0, 1]) { // corse del giorno prima oltre mezzanotte
+    const m = midnight(new Date(), day - back), sids = SD.calV[dayKey(m)] || [];
+    const base = m.getTime() / 1000;
+    for (const sid of sids) for (const [min, pat, tid] of (d.svc[sid] || [])) {
+      if (back && min < 1440) continue;
+      const t = base + min * 60;
+      if (!back || t >= midnight(new Date(), day).getTime() / 1000) out.push({ t, pat, tid });
+    }
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+const hhmm = t => new Date(t * 1000).toLocaleTimeString('it', { hour: '2-digit', minute: '2-digit' });
+function badgeShort(short) {
+  const rid = routesByShort(short)[0]; if (rid) return badge(rid);
+  const e = SD.byShort.get(String(short).toUpperCase());
+  const bg = e?.c ? '#' + e.c : hashColor(short), fg = e?.tc ? '#' + e.tc : '#fff';
+  return `<span class="badge" style="background:${bg};color:${fg}">${esc(short)}</span>`;
+}
+// passaggi programmati a una fermata nelle prossime 2 ore (corse senza dati in tempo reale)
+async function loadStopSched(stopId) {
+  try { await Promise.all([sdStops(), sdCal(), sdIndex()]); } catch (e) { return; }
+  const shorts = SD.stopsV[stopId] || [];
+  await Promise.all(shorts.map(sdLine));
+  if (S.stop && S.stop.id === stopId) renderStop();
+}
+function stopSched(stopId) {
+  if (!SD.stopsV || !SD.calV) return [];
+  const t = now(), out = [];
+  for (const short of SD.stopsV[stopId] || []) {
+    const L = lineData(short); if (!L) continue;
+    L.dirs.forEach((d, di) => {
+      const posIn = d.pats.map(p => { const i = p.st.indexOf(stopId); return i >= 0 && i < p.st.length - 1 && p.off[i] != null ? p.off[i] : null; });
+      if (posIn.every(x => x == null)) return;
+      for (const dep of departures(L, di, 0)) {
+        const off = posIn[dep.pat]; if (off == null) continue;
+        const at = dep.t + off * 60;
+        if (at < t - 60 || at > t + 120 * 60) continue;
+        out.push({ time: at, short, head: d.h || d.tn, tid: dep.tid, sched: true });
+      }
+    });
+  }
+  return out;
+}
+
+/* ---------------- Views: Linee (capolinea, schema, partenze, monitoraggio) ---------------- */
 S.myLines = JSON.parse(localStorage.getItem('iv.lines') || '[]');
-S.line = null; S.lineDir = 0; S.lineTab = 'schema';
+S.line = null; S.lineDir = 0; S.lineTab = null; S.lineDay = 0;
 const okDelay = d => d != null && Math.abs(d) < 7200 ? d : null;
-function routesByShort(short) { const u = short.toUpperCase(); return [...S.routes].filter(([, r]) => (r.short || '').toUpperCase() === u).map(([id]) => id); }
+function routesByShort(short) { const u = String(short).toUpperCase(); return [...S.routes].filter(([, r]) => (r.short || '').toUpperCase() === u).map(([id]) => id); }
 function fmtDelay(d) {
   if (d == null) return '';
   const m = Math.round(d / 60);
@@ -662,55 +744,64 @@ function fmtDelay(d) {
   return (m > 0 ? '+' : '−') + Math.abs(m) + '′';
 }
 function delayCls(d) { if (d == null) return ''; const m = Math.round(d / 60); return m >= 3 ? 'late' : m <= -2 ? 'early' : ''; }
+function dirCount(short) { const L = lineData(short); return L ? L.dirs.length : 2; }
+function dirOfTrip(L, tu) {
+  if (L) {
+    const di = L.tripDir.get(tu.trip?.trip_id); if (di != null) return di;
+    const k = L.dirs.findIndex(d => d.dir !== '' && +d.dir === (tu.trip?.direction_id ?? 0)); if (k >= 0) return k;
+  }
+  return tu.trip?.direction_id ?? 0;
+}
 
-// Builds the live model of one line+direction from trip updates and vehicle positions
+// Modello di una linea in una direzione: fermate (dal percorso programmato se disponibile) + vetture in tempo reale
 function buildLine(short, dir) {
+  const L = lineData(short);
   const rids = new Set(routesByShort(short));
   const t = now();
   const trips = [];
-  for (const [tid, tu] of S.byTrip) {
-    const rid = routeOfTrip(tu.trip);
-    if (!rids.has(rid)) continue;
-    if ((tu.trip?.direction_id ?? 0) !== dir) continue;
+  for (const [, tu] of S.byTrip) {
+    if (!rids.has(routeOfTrip(tu.trip))) continue;
+    if (dirOfTrip(L, tu) !== dir) continue;
     trips.push(tu);
   }
-  // stop order: for each GTFS stop_sequence take the most frequent stop
-  const bySeq = new Map();
-  for (const tu of trips) for (const u of tu.stu) {
-    if (u.seq == null || !u.stop_id) continue;
-    let m = bySeq.get(u.seq); if (!m) bySeq.set(u.seq, m = new Map());
-    m.set(u.stop_id, (m.get(u.stop_id) || 0) + 1);
-  }
-  const seqs = [...bySeq.keys()].sort((a, b) => a - b);
-  const stops = []; const seen = new Set();
-  for (const q of seqs) {
-    const sid = [...bySeq.get(q)].sort((a, b) => b[1] - a[1])[0][0];
-    if (seen.has(sid)) continue; seen.add(sid);
-    stops.push({ seq: q, id: sid, name: S.stopById.get(sid)?.name || sid });
+  let stops, fromStatic = false;
+  const D = L?.dirs[dir];
+  if (D) {
+    fromStatic = true;
+    stops = D.pats[0].st.map((id, i) => ({ seq: i + 1, id, name: S.stopById.get(id)?.name || id, off: D.pats[0].off[i] }));
+  } else {
+    const bySeq = new Map();
+    for (const tu of trips) for (const u of tu.stu) {
+      if (u.seq == null || !u.stop_id) continue;
+      let m = bySeq.get(u.seq); if (!m) bySeq.set(u.seq, m = new Map());
+      m.set(u.stop_id, (m.get(u.stop_id) || 0) + 1);
+    }
+    const seqs = [...bySeq.keys()].sort((a, b) => a - b), seen = new Set();
+    stops = [];
+    for (const q of seqs) {
+      const sid = [...bySeq.get(q)].sort((a, b) => b[1] - a[1])[0][0];
+      if (seen.has(sid)) continue; seen.add(sid);
+      stops.push({ seq: q, id: sid, name: S.stopById.get(sid)?.name || sid });
+    }
   }
   const idx = new Map(stops.map((s, i) => [s.id, i]));
-  // headsign
   const hc = new Map(); for (const tu of trips) { const h = headsign(tu.trip?.trip_id); if (h) hc.set(h, (hc.get(h) || 0) + 1); }
-  const head = [...hc].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
-  // vehicles
+  const head = D?.h || [...hc].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
   const vByTrip = new Map(S.vehicles.map(v => [v.trip?.trip_id, v]));
-  const vehs = [];
+  const vehs = [], offRoute = [];
   for (const tu of trips) {
     const v = vByTrip.get(tu.trip?.trip_id);
     const next = tu.stu.find(u => (u.arr?.time || u.dep?.time) > t - 60) || tu.stu[0];
     if (!next) continue;
-    let sid = v?.stop_id && idx.has(v.stop_id) ? v.stop_id : next.stop_id;
-    if (!idx.has(sid)) continue;
-    const at = v ? v.status === 1 : false; // STOPPED_AT
-    vehs.push({
-      label: v?.label || tu.vehicle?.label || tu.vehicle?.id || '—',
-      tu, v, pos: idx.get(sid), at, stop: sid,
-      delay: okDelay(next.arr?.delay ?? next.dep?.delay),
-      stale: v ? t - v.ts > 300 : true,
+    const sid = v?.stop_id && idx.has(v.stop_id) ? v.stop_id : idx.has(next.stop_id) ? next.stop_id : (tu.stu.find(u => idx.has(u.stop_id))?.stop_id);
+    const item = {
+      label: v?.label || tu.vehicle?.label || tu.vehicle?.id || '—', tu, v, at: v ? v.status === 1 : false,
+      delay: okDelay(next.arr?.delay ?? next.dep?.delay), stale: v ? t - v.ts > 300 : true,
       eta: new Map(tu.stu.map(u => [u.stop_id, u.arr?.time || u.dep?.time])),
-    });
+    };
+    if (!sid) { item.stop = v?.stop_id || next.stop_id; item.pos = -1; offRoute.push(item); continue; }
+    item.pos = idx.get(sid); item.stop = sid; vehs.push(item);
   }
-  // order: furthest along first; distance from the vehicle ahead
   vehs.sort((a, b) => b.pos - a.pos || (a.eta.get(a.stop) || 0) - (b.eta.get(b.stop) || 0));
   for (let i = 1; i < vehs.length; i++) {
     const A = vehs[i - 1], B = vehs[i];
@@ -719,93 +810,145 @@ function buildLine(short, dir) {
   }
   const gaps = vehs.map(v => v.gap).filter(g => g != null).sort((a, b) => a - b);
   const med = gaps.length ? gaps[Math.floor(gaps.length / 2)] : null;
-  for (const v of vehs) {
-    v.bunch = v.gap != null && v.gap < 3;
-    v.hole = v.gap != null && med != null && v.gap > Math.max(2 * med, 20);
-  }
-  return { short, dir, stops, vehs, head, med, rids: [...rids], gapsMissing: seqs.length && seqs[0] > 1 };
+  for (const v of vehs) { v.bunch = v.gap != null && v.gap < 3; v.hole = v.gap != null && med != null && v.gap > Math.max(2 * med, 20); }
+  const all = vehs.concat(offRoute);
+  return { short, dir, D, L, stops, vehs, offRoute, all, head, med, rids: [...rids], fromStatic, gapsMissing: !fromStatic && stops.length && stops[0].seq > 1 };
 }
 function lineSummary(short) {
-  const out = [];
-  for (const d of [0, 1]) { const m = buildLine(short, d); if (m.vehs.length) out.push(m); }
-  const all = out.flatMap(m => m.vehs);
+  const all = [];
+  for (let d = 0; d < dirCount(short); d++) all.push(...buildLine(short, d).all);
   const ds = all.map(v => v.delay).filter(x => x != null);
-  return {
-    n: all.length,
-    avg: ds.length ? ds.reduce((a, b) => a + b, 0) / ds.length : null,
-    bunch: all.filter(v => v.bunch).length, hole: all.filter(v => v.hole).length, stale: all.filter(v => v.stale).length,
-  };
+  return { n: all.length, avg: ds.length ? ds.reduce((a, b) => a + b, 0) / ds.length : null,
+    bunch: all.filter(v => v.bunch).length, hole: all.filter(v => v.hole).length, stale: all.filter(v => v.stale).length };
 }
 function flags(v) {
   return (v.bunch ? '<span class="flag q">accodata</span>' : '') + (v.hole ? '<span class="flag h">buco davanti</span>' : '') + (v.stale ? '<span class="flag s">no segnale</span>' : '');
 }
-function lineCard(short) {
+function lineTitle(short) {
+  const e = SD.byShort.get(String(short).toUpperCase());
+  if (e && e.d.length) return e.d.length > 1 ? `${e.d[0].fn} ↔ ${e.d[0].tn}` : `${e.d[0].fn} → ${e.d[0].tn}`;
   const rid = routesByShort(short)[0];
+  return S.routes.get(rid)?.long || 'Linea ' + short;
+}
+function lineCard(short) {
   const sm = S.byTrip.size ? lineSummary(short) : null;
   const on = S.myLines.includes(short);
-  const det = sm ? `${sm.n} ${sm.n === 1 ? 'vettura' : 'vetture'}` + (sm.avg != null ? ` · ritardo medio ${fmtDelay(sm.avg)}` : '') : 'carico…';
+  const det = sm ? (sm.n ? `${sm.n} ${sm.n === 1 ? 'vettura' : 'vetture'} in servizio` + (sm.avg != null ? ` · ritardo medio ${fmtDelay(sm.avg)}` : '') : 'nessuna vettura in tempo reale') : 'carico…';
   const warn = sm ? (sm.bunch ? `<span class="flag q">${sm.bunch} accodate</span>` : '') + (sm.hole ? `<span class="flag h">${sm.hole} buchi</span>` : '') + (sm.stale ? `<span class="flag s">${sm.stale} senza segnale</span>` : '') : '';
-  return `<div class="card" data-line="${esc(short)}">${badge(rid)}<div class="grow"><div class="t">${esc(S.routes.get(rid)?.long || 'Linea ' + short)}</div><div class="s">${det}</div>${warn ? `<div style="margin-top:4px">${warn}</div>` : ''}</div>
+  return `<div class="card" data-line="${esc(short)}">${badgeShort(short)}<div class="grow"><div class="t">${esc(lineTitle(short))}</div><div class="s">${det}</div>${warn ? `<div style="margin-top:4px">${warn}</div>` : ''}</div>
     <button class="star ${on ? 'on' : ''}" data-myline="${esc(short)}">${on ? '★' : '☆'}</button></div>`;
 }
 function renderLinesHome() {
+  if (!SD.idx) sdIndex().then(() => { if (S.view === 'linee' && !S.line) renderLinesHome(); }).catch(() => {});
   const q = $('#lq').value.trim().toUpperCase();
   const el = $('#lres');
   if (q) {
-    const shorts = [...new Set([...S.routes.values()].map(r => r.short).filter(Boolean))];
+    const shorts = SD.idx ? SD.idx.lines.map(l => l.s) : [...new Set([...S.routes.values()].map(r => r.short).filter(Boolean))];
     const hits = shorts.filter(s => s.toUpperCase() === q).concat(shorts.filter(s => s.toUpperCase() !== q && s.toUpperCase().startsWith(q))).slice(0, 30);
     el.innerHTML = hits.length ? `<h2>Linee</h2><div class="list">${hits.slice(0, 8).map(lineCard).join('')}</div>` +
-      (hits.length > 8 ? `<div class="chips" style="margin-top:10px">${hits.slice(8).map(s => `<span data-line="${esc(s)}">${badge(routesByShort(s)[0])}</span>`).join('')}</div>` : '')
+      (hits.length > 8 ? `<div class="chips" style="margin-top:10px">${hits.slice(8).map(s => `<span data-line="${esc(s)}">${badgeShort(s)}</span>`).join('')}</div>` : '')
       : `<div class="empty">Nessuna linea “${esc(q)}”.</div>`;
     return;
   }
   if (S.myLines.length && !S.byTrip.size && !S.lineLoading) { S.lineLoading = true; Promise.all([refreshTrips(true), refreshVehicles(true)]).then(renderLinesHome).catch(() => {}).finally(() => { S.lineLoading = false; }); }
   el.innerHTML = S.myLines.length
     ? `<h2>Le mie linee · monitoraggio</h2><div class="list">${S.myLines.map(lineCard).join('')}</div><p class="note">Accodata: meno di 3 minuti dalla vettura davanti. Buco: distacco oltre il doppio del normale (almeno 20 minuti). Dati aggiornati ogni 20 secondi.</p>`
-    : `<div class="empty">Cerca una linea per vedere lo schema con le vetture in servizio.<br>Con la ☆ la aggiungi a <b>Le mie linee</b> per monitorarle tutte insieme.</div>`;
+    : `<div class="empty">Cerca una linea per vedere capolinea, fermate, partenze e vetture in servizio.<br>Con la ☆ la aggiungi a <b>Le mie linee</b> per monitorarle tutte insieme.</div>`;
 }
-function openLine(short) {
-  S.line = short; S.lineDir = 0; S.lineTab = S.lineTab || 'schema';
-  const m0 = buildLine(short, 0), m1 = buildLine(short, 1);
-  if (!m0.vehs.length && m1.vehs.length) S.lineDir = 1;
+async function openLine(short) {
+  S.line = short; S.lineDir = 0; S.lineTab = null; S.lineDay = 0;
   $('#linee-home').hidden = true; $('#linee-line').hidden = false;
   history.pushState({ line: short }, '', '#linea-' + encodeURIComponent(short));
   renderLine(); tick(true);
+  try { await Promise.all([sdLine(short), sdCal()]); } catch (e) {}
+  if (S.line !== short) return;
+  // parte dalla direzione con vetture in tempo reale
+  const n = dirCount(short), live = [...Array(n)].map((_, d) => buildLine(short, d).all.length);
+  if (!live[0] && live.some(x => x)) S.lineDir = live.findIndex(x => x);
+  renderLine();
 }
 function closeLine() { S.line = null; $('#linee-home').hidden = false; $('#linee-line').hidden = true; renderLinesHome(); }
 function renderLine() {
   if (!S.line) return;
-  const el = $('#linee-line');
-  const ms = [buildLine(S.line, 0), buildLine(S.line, 1)];
-  const m = ms[S.lineDir];
-  const r = routeInfo(m.rids[0] || S.line);
-  const on = S.myLines.includes(S.line);
-  const dirLbl = x => x.head ? '→ ' + x.head : (x === ms[0] ? 'Andata' : 'Ritorno');
+  const el = $('#linee-line'), short = S.line;
+  const n = dirCount(short);
+  const ms = [...Array(n)].map((_, d) => buildLine(short, d));
+  if (S.lineDir >= n) S.lineDir = 0;
+  const m = ms[S.lineDir], L = m.L, t = now();
+  const on = S.myLines.includes(short);
+  const live = m.all.length > 0;
+  const tab = S.lineTab || (live || !L ? 'schema' : 'partenze');
+  const nextDep = di => { const d = L ? departures(L, di, 0).find(x => x.t >= t - 30) : null; return d ? hhmm(d.t) : null; };
+  const dirCard = (x, i) => {
+    const D = x.D, from = D ? D.fn : (i === 0 ? 'Andata' : 'Ritorno'), to = D ? D.tn : (x.head || '');
+    const nd = nextDep(i);
+    return `<button class="dirc ${i === S.lineDir ? 'on' : ''}" data-dir="${i}">
+      <span class="dk">${i === S.lineDir ? '◉' : '○'}</span>
+      <span class="dt"><small>Da</small><b>${esc(from)}</b><small>verso</small><b>${esc(to)}</b></span>
+      <span class="dm">${x.all.length ? `<span class="lv">● ${x.all.length} live</span>` : '<span class="nl">no live</span>'}${nd ? `<span>prossima ${nd}</span>` : ''}</span></button>`;
+  };
   const ds = m.vehs.map(v => v.delay).filter(x => x != null);
+  const avg = ds.length ? ds.reduce((a, b) => a + b, 0) / ds.length : null;
   let html = `<button class="back" id="lback">‹ Linee</button>
-    <div style="display:flex;align-items:center;gap:10px;margin:8px 0 4px">${badge(m.rids[0] || S.line)}<div style="flex:1;font-weight:800;font-size:18px">${esc(S.routes.get(m.rids[0])?.long || 'Linea ' + S.line)}</div>
-    <button class="star ${on ? 'on' : ''}" data-myline="${esc(S.line)}" style="font-size:24px">${on ? '★' : '☆'}</button></div>
-    <div class="seg">${ms.map((x, i) => `<button data-dir="${i}" class="${i === S.lineDir ? 'on' : ''}">${esc(dirLbl(x))} (${x.vehs.length})</button>`).join('')}</div>
-    <div class="sum"><div><b>${m.vehs.length}</b><span>vetture</span></div><div><b class="${delayCls(ds.length ? ds.reduce((a, b) => a + b, 0) / ds.length : null)}">${ds.length ? fmtDelay(ds.reduce((a, b) => a + b, 0) / ds.length) : '—'}</b><span>ritardo medio</span></div><div><b>${m.med != null ? Math.round(m.med) + '′' : '—'}</b><span>distacco tipico</span></div></div>
-    <div class="seg"><button data-ltab="schema" class="${S.lineTab === 'schema' ? 'on' : ''}">Schema</button><button data-ltab="vetture" class="${S.lineTab === 'vetture' ? 'on' : ''}">Vetture</button><button data-ltab="mappa">Mappa</button></div>`;
-  if (!S.tuTs) html += `<div class="empty">Carico i dati…</div>`;
-  else if (!m.stops.length) html += `<div class="empty">Nessuna vettura in servizio in questa direzione adesso.</div>`;
-  else if (S.lineTab === 'schema') {
-    const at = new Map(); for (const v of m.vehs) { const k = v.pos + (v.at ? '' : '-'); if (!at.has(k)) at.set(k, []); at.get(k).push(v); }
-    const chip = (v, app) => `<span class="vchip ${app ? 'app' : ''}" data-veh="${esc(v.label)}" title="${app ? 'in arrivo' : 'in fermata'}">🚌 ${esc(v.label)} <span class="dl ${delayCls(v.delay)}">${fmtDelay(v.delay)}</span>${v.bunch ? ' ⚠' : ''}${v.stale ? ' ⦸' : ''}</span>`;
-    html += `<div class="schema" style="--rc:${r.bg}">`;
-    if (m.gapsMissing) html += `<div class="gap">Prime fermate non disponibili: nessuna vettura le deve ancora servire.</div>`;
-    let prev = null;
-    m.stops.forEach((s, i) => {
-      if (prev != null && s.seq - prev > 1 && m.stops.length < 200) html += `<div class="gap">…</div>`;
-      prev = s.seq;
-      const vs = [...(at.get(i + '-') || []).map(v => chip(v, true)), ...(at.get(String(i)) || []).map(v => chip(v, false))];
-      html += `<div class="sst"><div class="rail"><i></i></div><div class="body" data-stop="${esc(s.id)}"><div class="nm">${esc(s.name)}</div>${vs.length ? `<div class="vv">${vs.join('')}</div>` : ''}</div></div>`;
-    });
-    html += `</div><p class="note">🚌 bordo pieno = in fermata · bordo tratteggiato = in arrivo · ⚠ accodata · ⦸ senza segnale da oltre 5 minuti.</p>`;
+    <div style="display:flex;align-items:center;gap:10px;margin:8px 0 2px">${badgeShort(short)}<div style="flex:1;font-weight:800;font-size:18px">Linea ${esc(short)}</div>
+    <button class="star ${on ? 'on' : ''}" data-myline="${esc(short)}" style="font-size:24px">${on ? '★' : '☆'}</button></div>
+    <h2>${n > 1 ? 'Scegli il capolinea di partenza' : 'Percorso'}</h2>
+    <div class="dirs">${ms.map(dirCard).join('')}</div>`;
+  if (!live && S.tuTs) html += `<div class="alert" style="margin-top:10px">🕒 <b style="display:inline">Nessun dato in tempo reale</b> per questa direzione: ${L ? 'mostro gli orari programmati.' : 'orari programmati non ancora disponibili.'}</div>`;
+  if (live) html += `<div class="sum"><div><b>${m.all.length}</b><span>vetture</span></div><div><b class="${delayCls(avg)}">${avg != null ? fmtDelay(avg) : '—'}</b><span>ritardo medio</span></div><div><b>${m.med != null ? Math.round(m.med) + '′' : '—'}</b><span>distacco tipico</span></div></div>`;
+  html += `<div class="seg"><button data-ltab="schema" class="${tab === 'schema' ? 'on' : ''}">Fermate</button><button data-ltab="partenze" class="${tab === 'partenze' ? 'on' : ''}">Partenze</button><button data-ltab="vetture" class="${tab === 'vetture' ? 'on' : ''}">Vetture</button><button data-ltab="mappa">Mappa</button></div>`;
+
+  if (tab === 'schema') {
+    if (!m.stops.length) html += `<div class="empty">${S.tuTs ? 'Fermate non disponibili per questa direzione.' : 'Carico i dati…'}</div>`;
+    else {
+      const at = new Map(); for (const v of m.vehs) { const k = v.pos + (v.at ? '' : '-'); if (!at.has(k)) at.set(k, []); at.get(k).push(v); }
+      const chip = (v, app) => `<span class="vchip ${app ? 'app' : ''}" data-veh="${esc(v.label)}" title="${app ? 'in arrivo' : 'in fermata'}">🚌 ${esc(v.label)} <span class="dl ${delayCls(v.delay)}">${fmtDelay(v.delay)}</span>${v.bunch ? ' ⚠' : ''}${v.stale ? ' ⦸' : ''}</span>`;
+      // senza vetture live: prossimo passaggio programmato a ogni fermata
+      const deps = !live && L ? departures(L, S.lineDir, 0).filter(d => d.pat === 0) : [];
+      const nextAt = off => { if (off == null) return null; const d = deps.find(x => x.t + off * 60 >= t); return d ? d.t + off * 60 : null; };
+      html += `<div class="schema" style="--rc:${routeInfo(m.rids[0] || short).bg}">`;
+      if (m.gapsMissing) html += `<div class="gap">Prime fermate non disponibili: nessuna vettura le deve ancora servire.</div>`;
+      if (m.offRoute.length) html += `<div class="gap" style="font-style:normal">Su percorso variato: ${m.offRoute.map(v => chip(v, true)).join(' ')}</div>`;
+      let prev = null;
+      m.stops.forEach((s, i) => {
+        if (!m.fromStatic && prev != null && s.seq - prev > 1) html += `<div class="gap">…</div>`;
+        prev = s.seq;
+        const vs = [...(at.get(i + '-') || []).map(v => chip(v, true)), ...(at.get(String(i)) || []).map(v => chip(v, false))];
+        const na = deps.length ? nextAt(s.off) : null;
+        const cap = i === 0 ? '<span class="cap">capolinea</span>' : i === m.stops.length - 1 ? '<span class="cap">arrivo</span>' : '';
+        html += `<div class="sst"><div class="rail"><i></i></div><div class="body" data-stop="${esc(s.id)}"><div class="nm">${esc(s.name)}${cap}</div>${na ? `<div class="pg">🕒 prossimo passaggio ${hhmm(na)}</div>` : ''}${vs.length ? `<div class="vv">${vs.join('')}</div>` : ''}</div></div>`;
+      });
+      html += `</div><p class="note">🚌 bordo pieno = in fermata · tratteggiato = in arrivo · ⚠ accodata · ⦸ senza segnale da oltre 5 minuti${deps.length ? ' · 🕒 orario programmato' : ''}.</p>`;
+    }
+  } else if (tab === 'partenze') {
+    if (!L) html += `<div class="empty">${SD.idx ? 'Orari programmati non disponibili per questa linea.' : 'Carico gli orari…'}</div>`;
+    else {
+      const deps = departures(L, S.lineDir, S.lineDay);
+      const liveBy = new Map(m.all.map(v => [v.tu.trip?.trip_id, v]));
+      html += `<div class="seg" style="margin-top:0"><button data-lday="0" class="${S.lineDay === 0 ? 'on' : ''}">Oggi</button><button data-lday="1" class="${S.lineDay === 1 ? 'on' : ''}">Domani</button></div>`;
+      if (!deps.length) html += `<div class="empty">Nessuna partenza programmata ${S.lineDay ? 'domani' : 'oggi'} da ${esc(m.D?.fn || 'questo capolinea')}.</div>`;
+      else {
+        const up = S.lineDay ? [] : deps.filter(d => d.t >= t - 60).slice(0, 4);
+        if (up.length) html += `<div class="list" style="margin-bottom:12px">` + up.map(d => {
+          const v = liveBy.get(d.tid), mi = Math.round((d.t - t) / 60);
+          return `<div class="arr"${v ? ` data-veh="${esc(v.label)}" style="cursor:pointer"` : ''}><div class="min" style="text-align:left;min-width:70px">${hhmm(d.t)}</div>
+            <div class="grow" style="flex:1"><div class="t">${mi <= 0 ? 'in partenza' : 'tra ' + (mi >= 60 ? Math.floor(mi / 60) + ' h ' + (mi % 60) + ' min' : mi + ' min')}</div><div class="s" style="font-size:12px;color:var(--muted)">${v ? `<span class="rt">● live</span> · vettura ${esc(v.label)} ${fmtDelay(v.delay)}` : '🕒 programmata'}${d.pat ? ' · percorso variato' : ''}</div></div></div>`;
+        }).join('') + `</div>`;
+        const day0 = midnight(new Date(), S.lineDay).getTime() / 1000;
+        const byH = new Map(); for (const d of deps) { const h = Math.floor((d.t - day0) / 3600); if (!byH.has(h)) byH.set(h, []); byH.get(h).push(d); }
+        const nextT = deps.find(d => d.t >= t)?.t;
+        html += `<div class="tt">` + [...byH].map(([h, list]) => `<div class="tr"><div class="th" ${h >= 24 ? 'title="dopo mezzanotte"' : ''}>${String(h % 24).padStart(2, '0')}${h >= 24 ? '<sup>+1</sup>' : ''}</div><div class="tm">${list.map(d => {
+          const mm = String(new Date(d.t * 1000).getMinutes()).padStart(2, '0');
+          const cls = !S.lineDay && d.t < t - 60 ? 'past' : d.t === nextT && !S.lineDay ? 'nx' : '';
+          return `<span class="${cls}${liveBy.has(d.tid) ? ' lv' : ''}${d.pat ? ' var' : ''}" title="${hhmm(d.t)}">${mm}</span>`;
+        }).join('')}</div></div>`).join('') + `</div>
+        <p class="note">Partenze da <b>${esc(m.D.fn)}</b> verso ${esc(m.D.tn)} · ${deps.length} corse. Evidenziata la prossima; sottolineata = con vettura in tempo reale; corsivo = percorso variato; +1 = dopo mezzanotte. Orari programmati dall’archivio ufficiale (Roma Servizi per la Mobilità).</p>`;
+      }
+    }
   } else {
-    html += `<table class="mon"><tr><th>Vettura</th><th>Posizione</th><th>Ritardo</th><th>Distacco</th></tr>` +
-      m.vehs.map(v => `<tr data-veh="${esc(v.label)}"><td class="n">${esc(v.label)}</td><td>${v.at ? '' : '<span style="color:var(--muted)">verso </span>'}${esc(S.stopById.get(v.stop)?.name || v.stop)}${flags(v) ? '<br>' + flags(v) : ''}</td>
+    if (!m.all.length) html += `<div class="empty">Nessuna vettura in tempo reale in questa direzione.</div>`;
+    else html += `<table class="mon"><tr><th>Vettura</th><th>Posizione</th><th>Ritardo</th><th>Distacco</th></tr>` +
+      m.vehs.concat(m.offRoute).map(v => `<tr data-veh="${esc(v.label)}"><td class="n">${esc(v.label)}</td><td>${v.at ? '' : '<span style="color:var(--muted)">verso </span>'}${esc(S.stopById.get(v.stop)?.name || v.stop)}${flags(v) ? '<br>' + flags(v) : ''}</td>
         <td class="${delayCls(v.delay)}">${fmtDelay(v.delay) || '—'}</td><td>${v.gap != null ? Math.round(v.gap) + '′' : '—'}</td></tr>`).join('') + `</table>
       <p class="note">Ordine: dalla vettura più avanti sul percorso. Distacco = minuti dalla vettura che precede, stimati dalle previsioni di passaggio.</p>`;
   }
@@ -855,7 +998,8 @@ function toggleFav(id) {
 document.addEventListener('click', e => {
   const f = e.target.closest('[data-fav]'); if (f) { e.stopPropagation(); toggleFav(f.dataset.fav); return; }
   const ml = e.target.closest('[data-myline]'); if (ml) { e.stopPropagation(); toggleMyLine(ml.dataset.myline); return; }
-  const dr = e.target.closest('[data-dir]'); if (dr) { S.lineDir = +dr.dataset.dir; renderLine(); return; }
+  const dr = e.target.closest('[data-dir]'); if (dr) { S.lineDir = +dr.dataset.dir; S.lineTab = null; renderLine(); return; }
+  const dy = e.target.closest('[data-lday]'); if (dy) { S.lineDay = +dy.dataset.lday; renderLine(); return; }
   const lt = e.target.closest('[data-ltab]'); if (lt) {
     if (lt.dataset.ltab === 'mappa') { $('#lineFilter').value = S.line; S.fitFilter = null; switchView('mappa'); return; }
     S.lineTab = lt.dataset.ltab; renderLine(); return;
@@ -863,7 +1007,7 @@ document.addEventListener('click', e => {
   const pk = e.target.closest('[data-pick]'); if (pk) { sendPick(pk.dataset.pick); return; }
   const mp = e.target.closest('[data-map]'); if (mp) { focusVehicle(mp.dataset.map); return; }
   const vh0 = e.target.closest('[data-veh]'); if (vh0) { if (PICK) showVehicle(vh0.dataset.veh); else focusVehicle(vh0.dataset.veh); return; }
-  const ln = e.target.closest('[data-line]'); if (ln) { openLine(ln.dataset.line); return; }
+  const ln = e.target.closest('[data-line]'); if (ln) { if (S.view !== 'linee') switchView('linee'); openLine(ln.dataset.line); return; }
   const st = e.target.closest('[data-stop]'); if (st) { if (S.view !== 'attese') switchView('attese'); openStop(st.dataset.stop); return; }
   const vh = e.target.closest('[data-veh]'); if (vh) { focusVehicle(vh.dataset.veh); return; }
   const nb = e.target.closest('nav button'); if (nb) { switchView(nb.dataset.v); return; }

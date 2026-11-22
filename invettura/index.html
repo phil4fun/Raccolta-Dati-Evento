@@ -140,6 +140,31 @@ html.embed .loading{position:absolute}
 .sum div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
 .sum b{display:block;font-size:20px}.sum span{font-size:11px;color:var(--muted)}
 .vm.stale{opacity:.4}
+.dirs{display:flex;flex-direction:column;gap:8px}
+.dirc{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:12px 14px;font:inherit;color:var(--text);cursor:pointer}
+.dirc.on{border-color:var(--accent);background:var(--accent-soft)}
+.dirc .dk{font-size:20px;color:var(--muted);line-height:1}
+.dirc.on .dk{color:var(--accent)}
+.dirc .dt{flex:1;min-width:0;display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:2px;align-items:baseline}
+.dirc .dt small{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.dirc .dt b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dirc .dm{display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:12px;color:var(--muted);white-space:nowrap}
+.dirc .lv{color:var(--ok);font-weight:700}.dirc .nl{color:var(--muted)}
+.cap{display:inline-block;margin-left:8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:1px 6px;vertical-align:2px}
+.pg{font-size:12px;color:var(--muted);margin-top:3px}
+.arr.sch{border-style:dashed}
+.arr.sch .min{color:var(--muted)}
+.tt{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.tr{display:flex;border-bottom:1px solid var(--line)}
+.tr:last-child{border:0}
+.th sup{font-size:9px;margin-left:1px}
+.th{width:46px;flex:none;background:var(--panel2);font-weight:800;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;color:var(--accent)}
+.tm{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px}
+.tm span{min-width:30px;text-align:center;padding:3px 4px;border-radius:6px;font-variant-numeric:tabular-nums;font-weight:600;font-size:14px}
+.tm span.past{color:var(--muted);opacity:.55;font-weight:400}
+.tm span.nx{background:var(--accent);color:var(--accent-ink)}
+.tm span.lv{box-shadow:inset 0 -2px 0 var(--ok)}
+.tm span.var{font-style:italic}
 </style>
 </head>
 <body>
@@ -227,6 +252,6 @@ html.embed .loading{position:absolute}
 
 <script>window.INVETTURA_API = 'https://invettura.fili979.workers.dev';</script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="app.js?v=mwr21m2m"></script>
+<script src="app.js?v=mwr2lxg5"></script>
 </body>
 </html>
