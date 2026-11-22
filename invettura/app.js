@@ -1081,11 +1081,26 @@ async function caricaPdfJs() {
 // archivio sul dispositivo: { LINEA: [ {file, tipo, linea, dal, tabs:[{n,t}]} ] }
 async function tabelleSalvate() { return (await idb.get('tabelle').catch(() => null)) || {}; }
 async function importaTabelle(files, onProgress) {
-  await caricaPdfJs();
-  const arch = await tabelleSalvate(), fatti = [], errori = [];
+  let arch = await tabelleSalvate();
+  const fatti = [], errori = [];
+  // file unico già pronto (tabelle-per-RDE.json): sostituisce tutto l'archivio
+  for (const f of files.filter(f => /\.json$/i.test(f.name))) {
+    try {
+      const j = JSON.parse(await f.text());
+      if (!j || !Array.isArray(j.tabelle)) throw new Error('non è il file delle tabelle');
+      arch = {};
+      for (const T of j.tabelle) {
+        if (!T || !T.linea || !Array.isArray(T.tabs) || !T.tabs.length) continue;
+        const k = String(T.linea).toUpperCase();
+        (arch[k] = arch[k] || []).push(T); fatti.push(T);
+      }
+    } catch (e) { errori.push(f.name + ': ' + e.message); }
+  }
+  const pdfs = files.filter(f => !/\.json$/i.test(f.name));
+  if (pdfs.length) await caricaPdfJs();
   let i = 0;
-  for (const f of files) {
-    i++; onProgress && onProgress(i, files.length, f.name);
+  for (const f of pdfs) {
+    i++; onProgress && onProgress(i, pdfs.length, f.name);
     try {
       const T = await leggiTabellaPdf(await f.arrayBuffer(), f.name);
       if (!T.linea || !T.tabs.length) throw new Error('non sembra una tabella di marcia');
@@ -1100,8 +1115,8 @@ async function importaTabelle(files, onProgress) {
 async function boxTabelle() {
   const el = $('#ptab'); if (!el) return;
   const arch = await tabelleSalvate(), linee = Object.keys(arch), n = linee.reduce((a, k) => a + arch[k].length, 0);
-  el.innerHTML = `<div class="nbox ${n ? 'on' : ''}" style="margin:12px 0"><label class="btn ${n ? 'ghost' : ''}" style="padding:10px 12px;cursor:pointer">📂 Importa tabelle di marcia<input type="file" id="ptabIn" accept="application/pdf,.pdf" multiple hidden></label>
-    <span>${n ? `${n} tabelle di ${linee.length} linee sul dispositivo. Servono per scrivere il turno (es. 90/2°). Puoi aggiungerne altre in qualsiasi momento: quelle con lo stesso nome vengono sostituite.` : 'Seleziona i PDF delle tabelle di marcia (anche tutti insieme, dalla cartella OneDrive). Restano solo su questo dispositivo.'}</span></div><div id="ptabMsg"></div>`;
+  el.innerHTML = `<div class="nbox ${n ? 'on' : ''}" style="margin:12px 0"><label class="btn ${n ? 'ghost' : ''}" style="padding:10px 12px;cursor:pointer">📂 Importa tabelle di marcia<input type="file" id="ptabIn" accept="application/pdf,.pdf,application/json,.json" multiple hidden></label>
+    <span>${n ? `${n} tabelle di ${linee.length} linee sul dispositivo. Servono per scrivere il turno (es. 90/2°). Per aggiornarle reimporta <b>tabelle-per-RDE.json</b> dalla cartella OneDrive.` : 'Dalla cartella OneDrive «Tabelle di marcia» scegli il file <b>tabelle-per-RDE.json</b> (contiene tutte le tabelle). In alternativa puoi selezionare i singoli PDF. Restano solo su questo dispositivo.'}</span></div><div id="ptabMsg"></div>`;
   $('#ptabIn').addEventListener('change', async e => {
     const files = [...e.target.files]; if (!files.length) return;
     const msg = $('#ptabMsg');
