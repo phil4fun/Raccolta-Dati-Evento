@@ -547,7 +547,7 @@ const FIELDS = [
   /* 5. effetti sul servizio */
   { k: "linee_interessate", l: "Linee interessate" },
   { k: "deviazioni", l: "Deviazioni", t: "yesno" },
-  { k: "corse_perse", l: "Corse perse" },
+  { k: "corse_perse", l: "Corse perse", perse: true },
   /* 6. racconto e chiusura */
   { k: "evento", l: "Evento", t: "area" },
   { k: "fine_evento", l: "Fine Evento/Deviazione" },
@@ -663,6 +663,13 @@ function buildRows() {
       else { el = document.createElement("input"); el.type = f.t === "time" ? "time" : "text"; if (f.ph) el.placeholder = f.ph; }
       el.id = id; el.name = f.k;
       el.addEventListener("input", onEdit);
+    }
+    if (f.perse) {
+      const wrap = document.createElement("div"); wrap.className = "gpsrow";
+      const b = document.createElement("button"); b.type = "button"; b.className = "gps"; b.textContent = "🧮 Calcola";
+      b.title = "Confronta partenze programmate e corse registrate (ultime 48 ore)"; b.setAttribute("aria-label", "Calcola le corse perse con InVettura");
+      b.addEventListener("click", openPerse);
+      wrap.append(el, b); row.append(lab, wrap); box.appendChild(row); continue;
     }
     if (f.live) {
       const wrap = document.createElement("div"); wrap.className = "gpsrow";
@@ -1788,6 +1795,26 @@ window.addEventListener("message", (e) => {
   toast("Compilato dal vivo: " + done.join(", "));
 });
 
+
+/* ---------- InVettura: corse perse e limitate ---------- */
+function openPerse() {
+  const c = readForm(), hm = (v) => { const m = String(v || "").match(/(\d{1,2})[:.](\d{2})/); return m ? m[1].padStart(2, "0") + ":" + m[2] : ""; };
+  const linee = [...new Set([c.campi.linea, ...(c.campi.linee_interessate || "").split(/[\s,;]+/)].map((x) => String(x || "").trim()).filter(Boolean))];
+  const pad = (x) => String(x).padStart(2, "0"), d = new Date();
+  const q = new URLSearchParams({ perse: "1", linee: linee.join(","), data: c.data || todayISO(),
+    dalle: hm(c.campi.ora_evento) || pad(d.getHours() - 1 < 0 ? 0 : d.getHours() - 1) + ":00", alle: hm(c.campi.fine_evento) || pad(d.getHours()) + ":" + pad(d.getMinutes()) });
+  closeLive();
+  const box = document.createElement("div"); box.className = "ivpick"; box.id = "ivPick";
+  const fr = document.createElement("iframe"); fr.title = "InVettura: corse perse"; fr.src = "invettura/?" + q.toString();
+  box.appendChild(fr); document.body.appendChild(box); document.body.style.overflow = "hidden";
+}
+window.addEventListener("message", (e) => {
+  if (e.origin !== location.origin || !e.data || e.data.type !== "invettura-perse") return;
+  if (tabOra !== "scheda") vai("scheda");
+  const cp = $("#f_corse_perse");
+  cp.value = cp.tagName === "TEXTAREA" ? e.data.testo : e.data.testo.replace(/\n+/g, "; "); closeLive(); onEdit();
+  toast("Corse perse compilate: " + e.data.perse + (e.data.limitate ? " · limitate: " + e.data.limitate : ""));
+});
 /* ---------- InVettura: avvisi sulle mie linee (anche fuori da "Mezzi live") ---------- */
 function ivLoad() { const fr = $("#ivFrame"); if (fr && !fr.src) fr.src = "invettura/?embed=1"; }
 window.addEventListener("message", (e) => {
