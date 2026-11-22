@@ -140,6 +140,18 @@ html.embed .loading{position:absolute}
 .sum div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
 .sum b{display:block;font-size:20px}.sum span{font-size:11px;color:var(--muted)}
 .vm.stale{opacity:.4}
+.pform{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:end}
+.pform label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.pform input{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px;font:inherit;font-size:16px;min-width:0}
+.pform .btn{grid-column:1/-1}
+.sum div b{font-variant-numeric:tabular-nums}
+.pdir{font-size:13px;color:var(--muted);margin:10px 0 6px}
+.pch{display:flex;flex-wrap:wrap;gap:6px}
+.pch span{border-radius:6px;padding:4px 8px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.pch .ok{background:#e3f1e8;color:#1f5c37}.pch .ko{background:#fbe3e1;color:#9b1c13;text-decoration:line-through}
+.pch .li{background:#fde9d6;color:#8a4300}.pch .lt{background:#fff2c9;color:#6b4e00}
+.pch .un{background:var(--panel2);color:var(--muted);border:1px dashed var(--line)}.pch .fu{color:var(--muted);border:1px solid var(--line)}
+.ptxt{margin-top:14px;background:var(--panel);border:1px solid var(--accent);border-radius:12px;padding:12px;font-size:14px;line-height:1.5}
 .nbox{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
 .nbox.on{border-color:var(--accent);background:var(--accent-soft)}
 .nbox .btn{padding:10px 12px;flex:none}
@@ -221,6 +233,18 @@ html.embed .loading{position:absolute}
     <p class="note">Il numero corrisponde all'identificativo del mezzo pubblicato nel feed in tempo reale di Roma Mobilità.</p>
   </section>
 
+  <section class="view" id="v-perse">
+    <div class="pform">
+      <label>Linee<input type="text" id="pl" placeholder="90, 301"></label>
+      <label>Data<input type="date" id="pd"></label>
+      <label>Dalle<input type="time" id="pa"></label>
+      <label>Alle<input type="time" id="pb"></label>
+      <button class="btn" id="pgo" style="padding:12px">Calcola</button>
+    </div>
+    <div id="ptab"></div>
+    <div id="pres"></div>
+  </section>
+
   <section class="view" id="v-info">
     <h2>InVettura</h2>
     <div class="card" style="cursor:default;display:block">
@@ -258,6 +282,6 @@ html.embed .loading{position:absolute}
 
 <script>window.INVETTURA_API = 'https://invettura.fili979.workers.dev';</script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="app.js?v=mwr3v39p"></script>
+<script src="app.js?v=mwrpkogk"></script>
 </body>
 </html>

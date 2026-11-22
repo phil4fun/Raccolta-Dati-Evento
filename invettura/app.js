@@ -694,7 +694,7 @@ function departures(L, di, day = 0) {
     for (const sid of sids) for (const [min, pat, tid] of (d.svc[sid] || [])) {
       if (back && min < 1440) continue;
       const t = base + min * 60;
-      if (!back || t >= midnight(new Date(), day).getTime() / 1000) out.push({ t, pat, tid });
+      if (!back || t >= midnight(new Date(), day).getTime() / 1000) out.push({ t, pat, tid, back });
     }
   }
   // la stessa corsa può comparire nel servizio di ieri (oltre le 24) e in quello di oggi: una sola volta
@@ -1023,6 +1023,253 @@ async function toggleNotify() {
 }
 setInterval(monitorLines, 60000);
 setTimeout(monitorLines, 8000);
+
+/* ---------------- Tabelle di marcia (PDF "Stampa Turni Macchina" da GAPI) ---------------- */
+// Dal nome file: TM + tipo + linea + '-' + AAMMGG (+ suffisso)
+function infoNomeTabella(name) {
+  const m = String(name).match(/TM([A-Z])(.+?)-(\d{6})/i);
+  if (!m) return null;
+  const d = m[3];
+  return { tipo: m[1].toUpperCase(), linea: m[2], dal: `20${d.slice(0, 2)}-${d.slice(2, 4)}-${d.slice(4, 6)}` };
+}
+// Legge un PDF e restituisce le tabelle: [{n, t:[minuti 0-1439 di tutti gli orari della tabella]}]
+async function leggiTabellaPdf(buf, name) {
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+  const tabs = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const tc = await page.getTextContent();
+    const txt = tc.items.map(it => it.str).join(' ');
+    const n = (txt.match(/Tab\.?\s*N\s*°\s*(\d+)/i) || [])[1];
+    if (!n) continue;
+    // orari dopo la riga di separazione (le righe d'intestazione hanno presenza/consegna, turni guida...)
+    const corpo = txt.split(/¯{5,}/).slice(1).join(' ') || txt;
+    const t = [...corpo.matchAll(/\b([0-2]\d):([0-5]\d)\b/g)].map(m => (+m[1] * 60 + +m[2]) % 1440);
+    const prev = tabs.find(x => x.n === +n);
+    if (prev) prev.t.push(...t); else tabs.push({ n: +n, t });
+  }
+  const info = infoNomeTabella(name) || {};
+  return { file: name, ...info, tabs };
+}
+// Abbina i turni macchina della linea (giorno 'day' rispetto a oggi) alle tabelle importate.
+// Restituisce Map(prefisso turno -> {n, file, prog: Map(tid -> n. corsa)})
+function abbinaTabelle(L, day, tabelle) {
+  const turni = new Map();
+  // solo le corse del servizio di quel giorno (non i pezzi di turno di ieri oltre la mezzanotte)
+  L.dirs.forEach((D, di) => { for (const d of departures(L, di, day)) { if (d.back) continue; const k = d.tid.split('-')[0]; if (!turni.has(k)) turni.set(k, []); turni.get(k).push(d); } });
+  const out = new Map();
+  if (!tabelle || !tabelle.length) return out;
+  for (const [k, deps] of turni) {
+    deps.sort((a, b) => a.t - b.t);
+    const mins = deps.map(d => { const x = new Date(d.t * 1000); return x.getHours() * 60 + x.getMinutes(); });
+    let best = null;
+    for (const T of tabelle) for (const tab of T.tabs) {
+      const set = new Set(tab.t); const hit = mins.filter(m => set.has(m)).length / mins.length;
+      if (!best || hit > best.hit) best = { hit, n: tab.n, file: T.file };
+    }
+    if (best && best.hit >= 0.8) out.set(k, { n: best.n, file: best.file, hit: best.hit, prog: new Map(deps.map((d, i) => [d.tid, i + 1])) });
+  }
+  return out;
+}
+
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+async function caricaPdfJs() {
+  if (window.pdfjsLib) return;
+  await new Promise((res, rej) => { const s = document.createElement('script'); s.src = PDFJS + 'pdf.min.js'; s.onload = res; s.onerror = () => rej(new Error('impossibile caricare il lettore PDF')); document.head.appendChild(s); });
+  pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js';
+}
+// archivio sul dispositivo: { LINEA: [ {file, tipo, linea, dal, tabs:[{n,t}]} ] }
+async function tabelleSalvate() { return (await idb.get('tabelle').catch(() => null)) || {}; }
+async function importaTabelle(files, onProgress) {
+  await caricaPdfJs();
+  const arch = await tabelleSalvate(), fatti = [], errori = [];
+  let i = 0;
+  for (const f of files) {
+    i++; onProgress && onProgress(i, files.length, f.name);
+    try {
+      const T = await leggiTabellaPdf(await f.arrayBuffer(), f.name);
+      if (!T.linea || !T.tabs.length) throw new Error('non sembra una tabella di marcia');
+      const k = T.linea.toUpperCase();
+      arch[k] = (arch[k] || []).filter(x => x.file !== T.file).concat([T]);
+      fatti.push(T);
+    } catch (e) { errori.push(f.name + ': ' + e.message); }
+  }
+  await idb.set('tabelle', arch);
+  return { fatti, errori, arch };
+}
+async function boxTabelle() {
+  const el = $('#ptab'); if (!el) return;
+  const arch = await tabelleSalvate(), linee = Object.keys(arch), n = linee.reduce((a, k) => a + arch[k].length, 0);
+  el.innerHTML = `<div class="nbox ${n ? 'on' : ''}" style="margin:12px 0"><label class="btn ${n ? 'ghost' : ''}" style="padding:10px 12px;cursor:pointer">📂 Importa tabelle di marcia<input type="file" id="ptabIn" accept="application/pdf,.pdf" multiple hidden></label>
+    <span>${n ? `${n} tabelle di ${linee.length} linee sul dispositivo. Servono per scrivere il turno (es. 90/2°). Puoi aggiungerne altre in qualsiasi momento: quelle con lo stesso nome vengono sostituite.` : 'Seleziona i PDF delle tabelle di marcia (anche tutti insieme, dalla cartella OneDrive). Restano solo su questo dispositivo.'}</span></div><div id="ptabMsg"></div>`;
+  $('#ptabIn').addEventListener('change', async e => {
+    const files = [...e.target.files]; if (!files.length) return;
+    const msg = $('#ptabMsg');
+    try {
+      const r = await importaTabelle(files, (i, tot, name) => { msg.innerHTML = `<div class="note">Leggo ${i}/${tot}: ${esc(name)}…</div>`; });
+      msg.innerHTML = `<div class="note">Importate ${r.fatti.length} tabelle${r.errori.length ? `; non lette: ${r.errori.map(esc).join(', ')}` : ''}.</div>`;
+      boxTabelle();
+    } catch (err) { msg.innerHTML = `<div class="alert"><b>Importazione non riuscita</b>${esc(err.message)}</div>`; }
+  });
+}
+
+/* ---------------- Corse perse / limitate (dallo storico di 48 ore del ponte) ---------------- */
+const PERSE = QS.get('perse') === '1';
+async function fetchStorico(from, to) {
+  const out = { since: null, snaps: [] };
+  for (let a = from; a < to; a += 8 * 3600) {        // il ponte accetta finestre di max 8 ore
+    const r = await fetch(`${BASE}/api/storico?from=${Math.floor(a)}&to=${Math.floor(Math.min(to, a + 8 * 3600))}`, { cache: 'no-store' });
+    const j = await r.json().catch(() => ({ error: 'risposta non valida' }));
+    if (!r.ok || j.error) throw new Error(j.error || 'HTTP ' + r.status);
+    out.since = j.since; out.snaps.push(...j.snaps);
+  }
+  return out;
+}
+// dateStr 'YYYY-MM-DD', hh:mm locali -> epoch s
+const epochOf = (dateStr, hm) => { const [y, mo, d] = dateStr.split('-').map(Number); const [h, mi] = hm.split(':').map(Number); return new Date(y, mo - 1, d, h, mi).getTime() / 1000; };
+async function calcolaPerse(lines, dateStr, dalle, alle) {
+  let from = epochOf(dateStr, dalle), to = epochOf(dateStr, alle); if (to <= from) to += 86400;
+  const t = now();
+  if (from > t) { from -= 86400; to -= 86400; } // turno di notte: l'inizio era ieri sera
+  if (from < t - 48 * 3600) throw new Error('Lo storico copre solo le ultime 48 ore.');
+  await Promise.all([sdCal(), sdIndex()]);
+  const st = await fetchStorico(from - 3600, Math.min(t, to + 3 * 3600));
+  if (!st.snaps.length) throw new Error('Nessuna registrazione in questa fascia: il ponte non stava registrando.');
+  // aggrega lo storico per corsa
+  const agg = new Map(), seenRoute = new Map();
+  for (const [ts, rows] of st.snaps) for (const [trip, veh, seq, stop, vts] of rows) {
+    let a = agg.get(trip); if (!a) agg.set(trip, a = { veh, first: ts, last: ts, minSeq: seq || 99, maxSeq: seq || 0, lastStop: stop, move: null, stops: new Set() });
+    if (stop) a.stops.add(stop);
+    a.last = ts; a.veh = veh || a.veh; if (seq) { a.minSeq = Math.min(a.minSeq, seq); if (seq > a.maxSeq) { a.maxSeq = seq; a.lastStop = stop; } }
+    if (!a.move && seq >= 2) a.move = { ts, seq };
+  }
+  const dayOff = Math.round((midnight(new Date(from * 1000)).getTime() - midnight(new Date()).getTime()) / 86400000);
+  const res = [];
+  for (const short of lines) {
+    const L = await sdLine(short); if (!L) { res.push({ short, err: 'linea non trovata' }); continue; }
+    // turni macchina dalle tabelle di marcia importate (90/1, 90/2...)
+    const arch = await tabelleSalvate();
+    const abb = abbinaTabelle(L, dayOff, arch[String(short).toUpperCase()] || []);
+    if (!S.tabMap) S.tabMap = new Map();
+    S.tabMap.set(String(short).toUpperCase(), new Map([...abb].map(([k, v]) => [k, v.n])));
+    const nTurni = new Set(); L.dirs.forEach((D, di) => { for (const d of departures(L, di, dayOff)) if (!d.back) nTurni.add(d.tid.split('-')[0]); });
+    let gpsLine = false;
+    const dirs = L.dirs.map((D, di) => {
+      // vetture di questa direzione che trasmettevano nella fascia (per capire se il GPS funzionava)
+      const dirTrips = new Set(); for (const list of Object.values(D.svc)) for (const [, , tid] of list) dirTrips.add(tid);
+      const tx = new Set(); for (const [ts, rows] of st.snaps) if (ts >= from - 600 && ts <= to + 600) for (const r of rows) if (dirTrips.has(r[0])) tx.add(ts);
+      const gpsOk = tx.size >= 3; if (gpsOk) gpsLine = true;
+      // partenze nella fascia; la stessa partenza puo' stare in due servizi (oltre le 24): tengo quella registrata
+      const byKey = new Map();
+      for (const day of [dayOff, dayOff + 1]) for (const d of departures(L, di, day)) {
+        if (d.t < from || d.t > to) continue;
+        const k = d.t + '|' + d.pat, old = byKey.get(k);
+        if (!old || (!agg.has(old.tid) && agg.has(d.tid))) byKey.set(k, d);
+      }
+      const deps = [...byKey.values()].sort((a, b) => a.t - b.t);
+      const items = deps.map(d => {
+        const P = D.pats[d.pat] || D.pats[0];
+        const endT = d.t + (P.off[P.off.length - 1] || 0) * 60;
+        const a = agg.get(d.tid);
+        if (d.t > t) return { d, s: 'futura' };
+        if (!a) return { d, s: gpsOk ? 'persa' : 'incerta' };
+        let late = null;
+        // il feed indica la fermata VERSO cui va: la prima volta che la vediamo diretta alla fermata N, ha lasciato la N-1
+        if (a.move) { const o = P.off[Math.max(0, Math.min(a.move.seq, P.off.length) - 2)]; if (o != null) { const dl = (a.move.ts - (d.t + o * 60)) / 60; if (dl > 5) late = Math.round(dl); } }
+        // limitata = non ha raggiunto il capolinea, anche per una sola fermata.
+        // Arrivata se e' stata vista all'ultima fermata o diretta verso di essa (il feed indica la prossima fermata):
+        // cosi' una vettura che arriva e sparisce tra due registrazioni non risulta limitata per errore.
+        const ended = t > endT + 15 * 60, n = P.st.length, capo = P.st[n - 1];
+        const arrivata = a.maxSeq >= n || a.stops.has(capo);
+        if (ended && !arrivata) return { d, s: 'limitata', veh: a.veh };
+        return { d, s: late ? 'ritardo' : 'partita', veh: a.veh, late };
+      });
+      return { D, items, gpsOk };
+    });
+    for (const d of dirs) for (const x of d.items) { const v = abb.get(x.d.tid.split('-')[0]); if (v) { x.tab = v.n; x.corsa = v.prog.get(x.d.tid); } }
+    res.push({ short, gpsOk: gpsLine, dirs, tabOk: abb.size, tabTot: nTurni.size, tabImp: (arch[String(short).toUpperCase()] || []).length });
+  }
+  return { res, since: st.since };
+}
+// turno macchina (90/7) di una corsa: dalle tabelle di marcia importate (S.tabMap: linea -> Map(prefisso turno -> n. tabella))
+function tabOf(short, tid) { const m = S.tabMap && S.tabMap.get(String(short).toUpperCase()); return m ? m.get(String(tid).split('-')[0]) || null : null; }
+// testo come nel fonogramma: "90/7° perde n. 2 corse e n. 1 limitata" (senza orari ne' capolinea)
+function testoPerse(r) {
+  const righe = []; let nP = 0, nL = 0;
+  const frase = (chi, p, l) => {
+    const corse = p ? `perde n. ${p} ${p === 1 ? 'corsa' : 'corse'}` : '';
+    const lim = l ? `n. ${l} ${l === 1 ? 'limitata' : 'limitate'}` : '';
+    return `${chi} ${corse && lim ? corse + ' e ' + lim : corse || 'effettua ' + lim}`;
+  };
+  for (const l of r.res) {
+    if (!l.dirs) continue;
+    const g = new Map(); // turno (o linea, se le tabelle non ci sono) -> [perse, limitate]
+    for (const d of l.dirs) for (const x of d.items) {
+      if (x.s !== 'persa' && x.s !== 'limitata') continue;
+      const tab = tabOf(l.short, x.d.tid), k = tab ? `${l.short}/${tab}°` : l.short;
+      const c = g.get(k) || [0, 0, tab || 0]; if (x.s === 'persa') c[0]++; else c[1]++; g.set(k, c);
+    }
+    for (const [k, [p, li]] of [...g].sort((a, b) => a[1][2] - b[1][2])) { righe.push(frase(k, p, li)); nP += p; nL += li; }
+  }
+  return { s: righe.length ? righe.join('\n') : 'Nessuna corsa persa o limitata.', nP, nL };
+}
+async function renderPerse() {
+  const el = $('#v-perse');
+  const linee = ($('#pl').value || '').split(/[\s,;]+/).map(x => x.trim()).filter(Boolean);
+  const box = $('#pres');
+  if (!linee.length) { box.innerHTML = `<div class="empty">Scrivi almeno una linea.</div>`; return; }
+  box.innerHTML = `<div class="empty">Confronto partenze programmate e corse registrate…</div>`;
+  let r;
+  try { await (S.staticP || Promise.resolve()).catch(() => {}); r = await calcolaPerse(linee, $('#pd').value, $('#pa').value, $('#pb').value); }
+  catch (e) { box.innerHTML = `<div class="alert"><b>Non posso calcolare</b>${esc(e.message)}</div>`; return; }
+  S.perseRes = r;
+  let html = '';
+  for (const l of r.res) {
+    if (l.err) { html += `<div class="alert">${esc(l.short)}: ${esc(l.err)}</div>`; continue; }
+    const all = l.dirs.flatMap(d => d.items).filter(x => x.s !== 'futura');
+    const c = k => all.filter(x => x.s === k).length;
+    html += `<h2 style="display:flex;align-items:center;gap:8px">${badgeShort(l.short)} Linea ${esc(l.short)}</h2>`;
+    html += l.tabImp ? `<p class="note" style="margin:0 4px 8px">Tabelle di marcia: ${l.tabOk} turni su ${l.tabTot} riconosciuti${l.tabOk < l.tabTot ? ' (importa la tabella del tipo di giorno giusto per gli altri)' : ''}.</p>`
+      : `<p class="note" style="margin:0 4px 8px">Nessuna tabella di marcia della ${esc(l.short)} sul dispositivo: il testo indica il totale della linea invece del turno.</p>`;
+    for (const d of l.dirs) if (!d.gpsOk && d.items.length) html += `<div class="alert"><b>Dati GPS assenti da ${esc(d.D.fn)}</b>Nessuna vettura di questa direzione ha trasmesso nella fascia: le sue corse sono segnate come incerte, non come perse.</div>`;
+    html += `<div class="sum"><div><b>${all.length}</b><span>programmate${c('incerta') ? ` (${c('incerta')} incerte)` : ''}</span></div><div><b style="color:var(--ok)">${c('partita') + c('ritardo')}</b><span>partite</span></div><div><b style="color:var(--late)">${c('persa')}</b><span>perse</span></div><div><b style="color:var(--warn)">${c('limitata')}</b><span>limitate</span></div></div>`;
+    for (const d of l.dirs) {
+      if (!d.items.length) continue;
+      html += `<div class="pdir">Da <b>${esc(d.D.fn)}</b> verso ${esc(d.D.tn)}</div><div class="pch">` + d.items.map(x => {
+        const tt = hhmm(x.d.t) + (x.tab ? ` \u00b7 ${esc(l.short)}/${x.tab}\u00b0${x.corsa ? ' ' + x.corsa + '\u00aa' : ''}` : '');
+        if (x.s === 'partita') return `<span class="ok" title="partita">${tt} · ${esc(x.veh || '?')}</span>`;
+        if (x.s === 'ritardo') return `<span class="lt" title="partita in ritardo">${tt} · ${esc(x.veh || '?')} +${x.late}′</span>`;
+        if (x.s === 'persa') return `<span class="ko" title="non partita">${tt}</span>`;
+        if (x.s === 'limitata') return `<span class="li" title="limitata: non ha raggiunto il capolinea">${tt} · ${esc(x.veh || '?')} · limitata</span>`;
+        if (x.s === 'incerta') return `<span class="un" title="dato incerto">${tt} · ?</span>`;
+        return `<span class="fu" title="non ancora partita">${tt}</span>`;
+      }).join('') + `</div>`;
+    }
+  }
+  const T = testoPerse(r);
+  html += `<div class="ptxt" style="white-space:pre-line">${esc(T.s)}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">${window.parent !== window ? `<button class="btn" id="pUse" style="padding:12px">Usa nella scheda</button>` : ''}<button class="btn ghost" id="pCopy" style="padding:12px">Copia testo</button></div>
+    <p class="note">Verde partita · rosso barrato non partita · arancio limitata (non ha raggiunto il capolinea) · giallo partita con oltre 5′ di ritardo · grigio dato incerto (GPS assente). Il risultato vale quanto i dati trasmessi dalle vetture: verifica sempre prima del fonogramma. Storico disponibile dal ${r.since ? new Date(r.since * 1000).toLocaleString('it', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}.</p>`;
+  box.innerHTML = html;
+}
+function initPerse() {
+  const pad = x => String(x).padStart(2, '0'), d = new Date();
+  $('#pd').value = QS.get('data') || `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  $('#pa').value = QS.get('dalle') || `${pad(Math.max(0, d.getHours() - 1))}:00`;
+  $('#pb').value = QS.get('alle') || `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  $('#pl').value = QS.get('linee') || '';
+  $('#pgo').addEventListener('click', renderPerse);
+  boxTabelle();
+  document.addEventListener('click', e => {
+    if (e.target.id === 'pUse' && S.perseRes) { const T = testoPerse(S.perseRes); window.parent.postMessage({ type: 'invettura-perse', testo: T.s, perse: T.nP, limitate: T.nL }, location.origin); }
+    if (e.target.id === 'pCopy' && S.perseRes) { navigator.clipboard?.writeText(testoPerse(S.perseRes).s).then(() => { e.target.textContent = 'Copiato'; }).catch(() => {}); }
+  });
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'v-perse'));
+  document.querySelector('nav').style.display = 'none';
+  $('#pickClose').hidden = false; $('#status').style.display = 'none'; $('#pickClose').style.marginLeft = 'auto'; $('.logo').style.fontSize = '19px'; $('.logo span').innerHTML = 'Corse <b>perse</b>';
+  $('#pickClose').addEventListener('click', () => window.parent.postMessage({ type: 'invettura-close' }, location.origin));
+  if ($('#pl').value) sdIndex().then(renderPerse).catch(renderPerse);
+}
 /* ---------------- Scelta vettura per la scheda evento (RDE) ---------------- */
 function pickData(label) {
   const v = S.vehicles.find(x => x.label === label);
@@ -1095,13 +1342,15 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) tick
 setInterval(() => { if (!document.hidden) tick(); }, RT_INTERVAL);
 if ('serviceWorker' in navigator && !window.INVETTURA_API) navigator.serviceWorker.register('/sw.js').catch(() => {});
 if (PICK) {
-  $('#pickClose').hidden = false; $('#status').hidden = true; $('#pickClose').style.marginLeft = 'auto'; $('.logo').style.fontSize = '19px'; $('.logo span').innerHTML = 'Scegli la <b>vettura</b>';
+  $('#pickClose').hidden = false; $('#status').style.display = 'none'; $('#pickClose').style.marginLeft = 'auto'; $('.logo').style.fontSize = '19px'; $('.logo span').innerHTML = 'Scegli la <b>vettura</b>';
   $('#pickClose').addEventListener('click', () => window.parent.postMessage({ type: 'invettura-close' }, location.origin));
   const q0 = QS.get('q'); if (q0) { $('#vq').value = q0; S.vq = q0; }
   switchView('vettura');
 }
 
-loadStatic().then(() => {
+if (PERSE) initPerse();
+S.staticP = loadStatic();
+S.staticP.then(() => {
   if (navigator.permissions) navigator.permissions.query({ name: 'geolocation' }).then(p => { if (p.state === 'granted') locate(); }).catch(() => {});
   const h = decodeURIComponent(location.hash);
   if (h.startsWith('#fermata-')) { history.replaceState(null, '', location.pathname); openStop(h.slice(9)); }
