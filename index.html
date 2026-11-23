@@ -396,6 +396,7 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 .riepbox pre, .stor pre { white-space: pre-wrap; background: var(--band); border-radius: 8px; padding: 10px; font-family: var(--body); font-size: 13.5px; margin: 8px 0; }
 .rowbtn { display: flex; gap: 8px; flex-wrap: wrap; }
 .stor { border-top: 1px solid var(--line); padding: 8px 14px; } .stor summary { cursor: pointer; font-weight: 700; color: var(--label); }
+.stordel { margin: 0 16px 12px; }
 .tools .filt { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 14px 10px; }
 .tools .grp { padding: 8px 14px 4px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--band); border-top: 1px solid var(--line); }
 .ct { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; padding: 9px 14px; border-top: 1px solid var(--line); background: #fff; color: #231f20; }
@@ -431,18 +432,6 @@ aside h2 { font-family: var(--display); font-weight: 600; font-size: 19px; margi
 @media (min-width: 601px) { #exportActions { flex-wrap: wrap; } }
 .themeb.sync { opacity: .75; } .themeb.sync.on { opacity: 1; background: rgba(255,255,255,.18); } .themeb.sync.err { background: #f2b705; color: #3b2a00; }
 .mbox .sy { font-size: 14.5px; }
-
-/* InVettura: sezione Mezzi live e scelta vettura */
-.ivcard { padding: 0; overflow: hidden; }
-.ivframe { display: block; width: 100%; height: calc(100dvh - 190px); min-height: 520px; border: 0; background: var(--paper); }
-.ivpick { position: fixed; inset: 0; z-index: 9999; background: var(--paper); display: flex; flex-direction: column; }
-.ivpick iframe { flex: 1; width: 100%; border: 0; }
-.sugglinee { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px 10px; background: var(--band); border-top: 1px dashed var(--line); }
-.sugglinee[hidden] { display: none; }
-.sugglinee .sl { font-size: 13px; color: var(--muted); margin-right: 4px; }
-.sugglinee .slc { border: 1px solid var(--accent); background: var(--surface); color: var(--accent); border-radius: 999px; padding: 4px 10px; min-height: 32px; font-weight: 700; font-size: 14px; cursor: pointer; }
-.sugglinee .slc.on { background: var(--accent); color: var(--accent-ink); }
-.sugglinee .slc.all { border-style: dashed; }
 </style>
 </head>
 <body>
@@ -508,7 +497,7 @@ const FIELDS = [
   { k: "ora_evento", l: "Ora Evento", t: "time" },
   { k: "luogo_evento", l: "Luogo Evento", ph: "Via / piazza, civico o incrocio, direzione", gps: true },
   { k: "altezza_fermata", l: "Altezza fermata", ph: "Nome o codice della fermata" },
-  { k: "vettura", l: "Vettura", live: true },
+  { k: "vettura", l: "Vettura" },
   { k: "linea_orario", l: "Linea/Orario", tpl: "Linea/Orario/Deposito", t: "pair", a: { k: "linea", l: "Linea", options: "LINEE", upper: true }, b: { k: "orario", l: "Orario" }, legacy: "linea_orario_deposito" },
   { k: "deposito", l: "Deposito", t: "choice", options: ["Acilia", "Grottarossa", "Magliana", "Montesacro", "Porta Maggiore", "Portonaccio", "Tor Pagnotta", "Tor Sapienza", "Tor Vergata"] },
   { k: "proveniente", l: "Proveniente" },
@@ -547,7 +536,7 @@ const FIELDS = [
   /* 5. effetti sul servizio */
   { k: "linee_interessate", l: "Linee interessate" },
   { k: "deviazioni", l: "Deviazioni", t: "yesno" },
-  { k: "corse_perse", l: "Corse perse", perse: true },
+  { k: "corse_perse", l: "Corse perse" },
   /* 6. racconto e chiusura */
   { k: "evento", l: "Evento", t: "area" },
   { k: "fine_evento", l: "Fine Evento/Deviazione" },
@@ -664,20 +653,6 @@ function buildRows() {
       el.id = id; el.name = f.k;
       el.addEventListener("input", onEdit);
     }
-    if (f.perse) {
-      const wrap = document.createElement("div"); wrap.className = "gpsrow";
-      const b = document.createElement("button"); b.type = "button"; b.className = "gps"; b.textContent = "🧮 Calcola";
-      b.title = "Confronta partenze programmate e corse registrate (ultime 48 ore)"; b.setAttribute("aria-label", "Calcola le corse perse con InVettura");
-      b.addEventListener("click", openPerse);
-      wrap.append(el, b); row.append(lab, wrap); box.appendChild(row); continue;
-    }
-    if (f.live) {
-      const wrap = document.createElement("div"); wrap.className = "gpsrow";
-      const b = document.createElement("button"); b.type = "button"; b.className = "gps"; b.textContent = "🚌 Dal vivo";
-      b.title = "Cerca la vettura in tempo reale e compila vettura, linea e fermata"; b.setAttribute("aria-label", "Cerca la vettura in tempo reale con InVettura");
-      b.addEventListener("click", () => openLive(el.value));
-      wrap.append(el, b); row.append(lab, wrap); box.appendChild(row); continue;
-    }
     if (f.gps) {
       const wrap = document.createElement("div"); wrap.className = "gpsrow";
       const b = document.createElement("button"); b.type = "button"; b.className = "gps"; b.textContent = "📍 Posizione";
@@ -791,7 +766,6 @@ function fillForm(rec) {
     else el.value = val;
   }
   renderList();
-  setTimeout(suggerisciLinee, 0);
 }
 /* what goes in the exported cell */
 function disp(rec, f) {
@@ -1716,116 +1690,8 @@ function modulo(title, fields, okLabel) {   // piccola finestra con campi, resti
   });
 }
 
-
-
-/* ---------- InVettura: linee che passano alla fermata (per "Linee interessate") ---------- */
-let FERMATE = null;
-const normF = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
-async function caricaFermate() {
-  if (FERMATE) return FERMATE;
-  const d = new Date(), v = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-  const r = await fetch("invettura/data/fermate.json?v=" + v); if (!r.ok) throw new Error("HTTP " + r.status);
-  FERMATE = (await r.json()).map(([id, n, l]) => ({ id, n, l, k: normF(n) }));
-  return FERMATE;
-}
-function lineeFermata(txt) {
-  if (!FERMATE || !txt) return null;
-  const code = (txt.match(/\((\d{3,6})\)\s*$/) || txt.match(/^\s*(\d{3,6})\s*$/) || [])[1];
-  let hit = code ? FERMATE.filter((f) => f.id === code) : [];
-  if (!hit.length) {
-    const k = normF(txt.replace(/\(.*?\)/g, "")); if (k.length < 3) return null;
-    hit = FERMATE.filter((f) => f.k === k);
-    if (!hit.length) hit = FERMATE.filter((f) => f.k.startsWith(k));
-    if (new Set(hit.map((h) => h.k)).size > 1) return null; // nome ambiguo: nessuna proposta
-  }
-  if (!hit.length) return null;
-  const linee = [...new Set(hit.flatMap((h) => h.l))].sort((a, b) => a.length - b.length || a.localeCompare(b));
-  return { name: hit[0].n, linee };
-}
-function lineeScritte() { return ($("#f_linee_interessate").value || "").split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean); }
-function suggerisciLinee() {
-  const row = $("#row_linee_interessate"), af = $("#f_altezza_fermata"); if (!row || !af) return;
-  let box = $("#suggLinee");
-  if (!box) {
-    box = document.createElement("div"); box.id = "suggLinee"; box.className = "sugglinee"; box.hidden = true; row.appendChild(box);
-    box.addEventListener("click", (e) => {
-      const b = e.target.closest("button[data-l]"); if (!b) return;
-      const cur = lineeScritte(), up = new Set(cur.map((x) => x.toUpperCase()));
-      const add = b.dataset.l === "*" ? JSON.parse(box.dataset.all) : [b.dataset.l];
-      for (const l of add) if (!up.has(l.toUpperCase())) { cur.push(l); up.add(l.toUpperCase()); }
-      $("#f_linee_interessate").value = cur.join(", "); onEdit(); suggerisciLinee();
-    });
-  }
-  const txt = af.value.trim(); if (!txt) { box.hidden = true; return; }
-  caricaFermate().then(() => {
-    const r = lineeFermata(txt); if (!r || !r.linee.length) { box.hidden = true; return; }
-    const cur = new Set(lineeScritte().map((x) => x.toUpperCase()));
-    const mancano = r.linee.filter((l) => !cur.has(l.toUpperCase()));
-    box.dataset.all = JSON.stringify(r.linee); box.hidden = false;
-    box.innerHTML = '<span class="sl">🚏 Alla fermata ' + esc(r.name) + " passano:</span>" +
-      r.linee.map((l) => '<button type="button" class="slc' + (cur.has(l.toUpperCase()) ? " on" : "") + '" data-l="' + esc(l) + '">' + esc(l) + "</button>").join("") +
-      (mancano.length > 1 ? '<button type="button" class="slc all" data-l="*">+ aggiungi tutte</button>' : "");
-  }).catch(() => { box.hidden = true; });
-}
-/* ---------- InVettura: compila vettura/linea/fermata dal vivo ---------- */
-function openLive(q) {
-  closeLive();
-  const box = document.createElement("div"); box.className = "ivpick"; box.id = "ivPick";
-  const fr = document.createElement("iframe"); fr.title = "InVettura: scegli la vettura"; fr.allow = "geolocation";
-  fr.src = "invettura/?pick=1" + (q ? "&q=" + encodeURIComponent(q.trim()) : "");
-  box.appendChild(fr); document.body.appendChild(box); document.body.style.overflow = "hidden";
-}
-function closeLive() { const b = $("#ivPick"); if (b) b.remove(); document.body.style.overflow = ""; }
-function setLinea(linea) {
-  const f = FIELDS.find((x) => x.k === "linea_orario"); if (!f || !linea) return;
-  const el = $("#f_" + f.k), other = $("#f_" + f.k + "_altro"), L = String(linea).toUpperCase();
-  if (LINEE.includes(L)) { el.value = L; other.value = ""; other.hidden = true; } else { el.value = "__altro"; other.value = L; other.hidden = false; }
-}
-window.addEventListener("message", (e) => {
-  if (e.origin !== location.origin || !e.data || typeof e.data !== "object") return;
-  if (e.data.type === "invettura-close") { closeLive(); return; }
-  if (e.data.type !== "invettura-pick") return;
-  const d = e.data, done = [];
-  if (tabOra !== "scheda") vai("scheda");
-  if (d.vettura) { $("#f_vettura").value = d.vettura; done.push("vettura " + d.vettura); }
-  if (d.linea) { setLinea(d.linea); done.push("linea " + d.linea); }
-  const af = $("#f_altezza_fermata");
-  if (d.fermata && af && !af.value.trim()) { af.value = d.fermata + (d.fermataCodice ? " (" + d.fermataCodice + ")" : ""); done.push("fermata"); }
-  closeLive(); onEdit(); suggerisciLinee();
-  toast("Compilato dal vivo: " + done.join(", "));
-});
-
-
-/* ---------- InVettura: corse perse e limitate ---------- */
-function openPerse() {
-  const c = readForm(), hm = (v) => { const m = String(v || "").match(/(\d{1,2})[:.](\d{2})/); return m ? m[1].padStart(2, "0") + ":" + m[2] : ""; };
-  const linee = [...new Set([c.campi.linea, ...(c.campi.linee_interessate || "").split(/[\s,;]+/)].map((x) => String(x || "").trim()).filter(Boolean))];
-  const pad = (x) => String(x).padStart(2, "0"), d = new Date();
-  const q = new URLSearchParams({ perse: "1", linee: linee.join(","), data: c.data || todayISO(),
-    dalle: hm(c.campi.ora_evento) || pad(d.getHours() - 1 < 0 ? 0 : d.getHours() - 1) + ":00", alle: hm(c.campi.fine_evento) || pad(d.getHours()) + ":" + pad(d.getMinutes()) });
-  closeLive();
-  const box = document.createElement("div"); box.className = "ivpick"; box.id = "ivPick";
-  const fr = document.createElement("iframe"); fr.title = "InVettura: corse perse"; fr.src = "invettura/?" + q.toString();
-  box.appendChild(fr); document.body.appendChild(box); document.body.style.overflow = "hidden";
-}
-window.addEventListener("message", (e) => {
-  if (e.origin !== location.origin || !e.data || e.data.type !== "invettura-perse") return;
-  if (tabOra !== "scheda") vai("scheda");
-  const cp = $("#f_corse_perse");
-  cp.value = cp.tagName === "TEXTAREA" ? e.data.testo : e.data.testo.replace(/\n+/g, "; "); closeLive(); onEdit();
-  toast("Corse perse compilate: " + e.data.perse + (e.data.limitate ? " · limitate: " + e.data.limitate : ""));
-});
-/* ---------- InVettura: avvisi sulle mie linee (anche fuori da "Mezzi live") ---------- */
-function ivLoad() { const fr = $("#ivFrame"); if (fr && !fr.src) fr.src = "invettura/?embed=1"; }
-window.addEventListener("message", (e) => {
-  if (e.origin !== location.origin || !e.data || e.data.type !== "invettura-alert") return;
-  toast("🚌 " + e.data.text);
-});
-setTimeout(() => { let on = false; try { on = localStorage.getItem("iv.notify") === "1"; } catch {} if (on) ivLoad(); }, 3000);
-
-document.addEventListener("input", (e) => { if (e.target && e.target.id === "f_altezza_fermata") { clearTimeout(suggerisciLinee.h); suggerisciLinee.h = setTimeout(suggerisciLinee, 400); } if (e.target && e.target.id === "f_linee_interessate") { clearTimeout(suggerisciLinee.h2); suggerisciLinee.h2 = setTimeout(suggerisciLinee, 400); } });
 /* ---------- navigazione ---------- */
-const TABS = [["scheda", "Scheda"], ["mezzi", "Mezzi live"], ["dev", "Deviazioni"], ["fon", "Fonogrammi"], ["turno", "Turno"], ["rub", "Rubrica"]];
+const TABS = [["scheda", "Scheda"], ["dev", "Deviazioni"], ["fon", "Fonogrammi"], ["turno", "Turno"], ["rub", "Rubrica"]];
 let tabOra = "scheda";
 function vai(t) {
   tabOra = t;
@@ -1834,7 +1700,6 @@ function vai(t) {
   const sch = t === "scheda";
   $("main").hidden = !sch; $("aside.archive").hidden = !sch; $(".tools").hidden = sch; $(".mbar").classList.toggle("off", !sch);
   if (t === "dev") renderDev(); if (t === "fon") renderFon(); if (t === "turno") renderTurno(); if (t === "rub") renderRub();
-  if (t === "mezzi") ivLoad();
   window.scrollTo({ top: 0 });
 }
 function buildTools() {
@@ -1844,7 +1709,6 @@ function buildTools() {
   nav.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => vai(b.dataset.t)));
   const box = document.createElement("div"); box.className = "tools"; box.hidden = true;
   box.innerHTML = `
-  <section data-p="mezzi" hidden><div class="card ivcard"><iframe id="ivFrame" class="ivframe" title="InVettura: mezzi in tempo reale" allow="geolocation"></iframe></div></section>
   <section data-p="dev" hidden><div class="card"><div class="ch"><h2>Archivio deviazioni</h2><button type="button" class="btn primary" id="devNew">+ Nuova</button></div>
     <div class="pad"><input type="search" class="search" id="qd" placeholder="Cerca linea, via, capolinea… (es. 338 Val d’Aosta)"></div>
     <p class="pad muted" style="padding-top:0">Ogni deviazione scritta in una scheda viene salvata qui da sola. La riusi con un tocco.</p><div id="devlist"></div></div></section>
@@ -2007,7 +1871,9 @@ function renderTurno() {
     const ev = T.voci.filter((v) => v.t === "ev").length, fo = T.voci.filter((v) => v.t === "fo").length, no = T.voci.filter((v) => v.t === "no").length;
     bar.innerHTML = '<span class="pill">● In servizio dalle ' + esc((T.voci[0] || {}).ora || "") + '</span><span class="muted">eventi ' + ev + " · fonogrammi " + fo + " · note " + no + '</span><div style="flex:1"></div><button type="button" class="btn" id="tStop">Chiudi turno</button>';
     $("#tStop").addEventListener("click", async () => {
-      if (!(await ask("Chiudere il turno?", "Il diario viene archiviato. Prima puoi condividere il riepilogo.", [["Annulla", false], ["Chiudi turno", true, true]]))) return;
+      const sc = await ask("Chiudere il turno?", "Il diario viene archiviato e puoi condividere il riepilogo. Se l’hai avviato per sbaglio, scartalo: non resta nell’elenco.", [["Indietro", false], ["Scarta turno", "x"], ["Chiudi turno", true, true]]);
+      if (!sc) return;
+      if (sc === "x") { if (!(await ask("Scartare il turno?", "Il diario di questo turno viene cancellato e non va tra i turni precedenti. Le schede evento e i fonogrammi restano.", [["Indietro", false], ["Scarta", true, true]]))) return; const T3 = turno(); Object.assign(T3, { attivo: false, voci: [] }); LS.set(TUR_K, T3); updTurnoBadge(); renderTurno(); toast("Turno scartato."); return; }
       const T2 = turno(); T2.voci.push({ t: "st", ora: oraAdesso(), testo: "Fine turno", sub: "" }); const txt = riepTurno();
       T2.storico = [{ data: T2.data, nome: T2.nome, testo: txt }, ...(T2.storico || [])].slice(0, 30); Object.assign(T2, { attivo: false, voci: [] }); LS.set(TUR_K, T2); updTurnoBadge(); renderTurno(); condividiTesto(txt, "Riepilogo turno");
     });
@@ -2016,7 +1882,10 @@ function renderTurno() {
   $("#tl").innerHTML = T.voci.map((v) => '<li class="' + v.t + '"><span class="h">' + esc(v.ora) + '</span><span class="d"></span><span class="x">' + esc(v.testo) + (v.sub ? "<small>" + esc(v.sub) + "</small>" : "") + "</span></li>").join("");
   $("#riepT").textContent = riepTurno();
   const st = $("#storico"); st.innerHTML = (T.storico || []).length ? '<div class="grp">Turni precedenti</div>' : "";
-  for (const s of T.storico || []) { const d = document.createElement("details"); d.className = "stor"; d.innerHTML = "<summary></summary><pre></pre>"; d.querySelector("summary").textContent = itDate(s.data) + (s.nome ? " · " + s.nome : ""); d.querySelector("pre").textContent = s.testo; st.appendChild(d); }
+  (T.storico || []).forEach((s, i) => { const d = document.createElement("details"); d.className = "stor"; d.innerHTML = "<summary></summary><pre></pre>"; d.querySelector("summary").textContent = itDate(s.data) + (s.nome ? " · " + s.nome : ""); d.querySelector("pre").textContent = s.testo;
+    const del = document.createElement("button"); del.type = "button"; del.className = "btn stordel"; del.textContent = "🗑 Elimina questo turno";
+    del.addEventListener("click", async () => { if (!(await ask("Eliminare il turno?", itDate(s.data) + (s.nome ? " · " + s.nome : "") + " viene tolto dai turni precedenti. Le schede evento e i fonogrammi restano.", [["Annulla", false], ["Elimina", true, true]]))) return; const T2 = turno(); T2.storico = (T2.storico || []).filter((x, j) => !(j === i && x.data === s.data && x.testo === s.testo)); LS.set(TUR_K, T2); renderTurno(); toast("Turno eliminato."); });
+    d.appendChild(del); st.appendChild(d); });
 }
 
 /* ---------- rubrica ---------- */
